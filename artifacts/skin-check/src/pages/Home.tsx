@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDiagnose } from "@workspace/api-client-react";
 import { BodyDoll, SkinCondition, ZoneData, DollMode, zonesDef } from "@/components/BodyDoll";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useDiagnosisContext } from "@/context/DiagnosisContext";
-import { RotateCcw, Sparkles, ChevronLeft, ChevronRight, Pill } from "lucide-react";
+import { RotateCcw, Sparkles, Pill, Undo2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const CONDITIONS: SkinCondition[] = [
@@ -17,87 +18,89 @@ const CONDITIONS: SkinCondition[] = [
   "Dryness", "Sunburn",
 ];
 
-const MEDICATIONS = [
-  "Benzoyl Peroxide",
-  "Salicylic Acid",
-  "Adapalene",
-  "Clindamycin",
-  "Retinol",
-  "Niacinamide",
-  "Hydrocortisone Cream",
-  "Antibiotic Cream",
-  "Antifungal Cream",
-  "Tea Tree Oil",
-  "Moisturizer",
-  "Sunscreen",
-];
-
-// How much severity changes per day (positive = worse, negative = heals naturally)
-const NATURAL_PROGRESSION: Record<SkinCondition, number> = {
-  "Acne":               0.20,
-  "Cystic Acne":        0.30,
-  "Blackheads":         0.05,
-  "Rash":               0.15,
-  "Hives":             -0.40,
-  "Contact Dermatitis": 0.10,
-  "Eczema":             0.08,
-  "Psoriasis":          0.05,
-  "Infection":          0.45,
-  "Fungal":             0.35,
-  "Dryness":            0.10,
-  "Sunburn":           -0.30,
-};
-
-// How much severity decreases per day with medication (negative = healing)
-const MEDICATION_RATE: Record<string, number> = {
-  "Benzoyl Peroxide":     -1.5,
-  "Salicylic Acid":       -1.2,
-  "Adapalene":            -1.3,
-  "Clindamycin":          -1.6,
-  "Retinol":              -1.0,
-  "Niacinamide":          -0.7,
-  "Hydrocortisone Cream": -2.0,
-  "Antibiotic Cream":     -1.8,
-  "Antifungal Cream":     -1.5,
-  "Tea Tree Oil":         -0.8,
-  "Moisturizer":          -0.5,
-  "Sunscreen":            -0.3,
-};
-
-function simulateSeverity(zone: ZoneData, day: number): number {
-  if (day === 0) return zone.severity;
-  const rate = zone.medication
-    ? (MEDICATION_RATE[zone.medication] ?? -0.8)
-    : (NATURAL_PROGRESSION[zone.condition] ?? 0.1);
-  return Math.max(0, Math.min(10, zone.severity + rate * day));
+interface BrandMed {
+  brand: string;
+  generic: string;
+  category: string;
 }
+
+const BRAND_MEDICATIONS: BrandMed[] = [
+  { brand: "Proactiv", generic: "Benzoyl Peroxide", category: "Acne" },
+  { brand: "PanOxyl", generic: "Benzoyl Peroxide", category: "Acne" },
+  { brand: "AcneFree", generic: "Benzoyl Peroxide", category: "Acne" },
+  { brand: "Differin", generic: "Adapalene (Retinoid)", category: "Acne / Retinoid" },
+  { brand: "Retin-A", generic: "Tretinoin (Prescription Retinoid)", category: "Prescription" },
+  { brand: "Retin-A Micro", generic: "Tretinoin Gel (Prescription)", category: "Prescription" },
+  { brand: "Tazorac", generic: "Tazarotene (Prescription Retinoid)", category: "Prescription" },
+  { brand: "Epiduo", generic: "Adapalene + Benzoyl Peroxide", category: "Combination" },
+  { brand: "Benzaclin", generic: "Clindamycin + Benzoyl Peroxide", category: "Combination Antibiotic" },
+  { brand: "Clindamycin / Cleocin T", generic: "Clindamycin (Topical Antibiotic)", category: "Antibiotic" },
+  { brand: "Aczone", generic: "Dapsone (Topical Antibiotic)", category: "Antibiotic" },
+  { brand: "Neosporin", generic: "Triple Antibiotic Ointment", category: "Antibiotic" },
+  { brand: "Bactroban", generic: "Mupirocin (Prescription Antibiotic)", category: "Prescription" },
+  { brand: "Nizoral", generic: "Ketoconazole (Antifungal)", category: "Antifungal" },
+  { brand: "Lotrimin", generic: "Clotrimazole (Antifungal)", category: "Antifungal" },
+  { brand: "Tinactin", generic: "Tolnaftate (Antifungal)", category: "Antifungal" },
+  { brand: "Lamisil", generic: "Terbinafine (Antifungal)", category: "Antifungal" },
+  { brand: "Cortizone-10", generic: "Hydrocortisone 1%", category: "Anti-inflammatory" },
+  { brand: "Stridex", generic: "Salicylic Acid Pads", category: "Exfoliant / Acne" },
+  { brand: "Clean & Clear", generic: "Salicylic Acid", category: "Acne" },
+  { brand: "Clearasil", generic: "Salicylic Acid / Benzoyl Peroxide", category: "Acne" },
+  { brand: "Neutrogena T/Sal", generic: "Salicylic Acid Shampoo", category: "Scalp" },
+  { brand: "Neutrogena T/Gel", generic: "Coal Tar (Psoriasis/Dandruff)", category: "Scalp" },
+  { brand: "Paula's Choice BHA", generic: "Salicylic Acid 2%", category: "Exfoliant" },
+  { brand: "The Ordinary Niacinamide", generic: "Niacinamide 10% + Zinc", category: "Serum" },
+  { brand: "The Ordinary Retinol", generic: "Retinol (Vitamin A)", category: "Retinoid" },
+  { brand: "La Roche-Posay Effaclar", generic: "Salicylic Acid + Niacinamide", category: "Acne" },
+  { brand: "La Roche-Posay Toleriane", generic: "Ceramide Moisturizer", category: "Moisturizer" },
+  { brand: "CeraVe Moisturizer", generic: "Ceramides + Hyaluronic Acid", category: "Moisturizer" },
+  { brand: "Cetaphil", generic: "Gentle Moisturizing Lotion", category: "Moisturizer" },
+  { brand: "Aveeno", generic: "Colloidal Oatmeal Moisturizer", category: "Moisturizer" },
+  { brand: "Vanicream", generic: "Fragrance-Free Moisturizer", category: "Moisturizer" },
+  { brand: "Eucerin", generic: "Urea / Ceramide Repair Cream", category: "Moisturizer" },
+  { brand: "Aquaphor", generic: "Petrolatum Healing Ointment", category: "Barrier / Healing" },
+  { brand: "Bioderma Sensibio", generic: "Micellar Water / Gentle Cleanser", category: "Cleanser" },
+  { brand: "Murad Acne Control", generic: "Salicylic Acid Treatment", category: "Acne" },
+  { brand: "Tea Tree Oil", generic: "Melaleuca Oil (Antimicrobial)", category: "Natural" },
+  { brand: "Aloe Vera Gel", generic: "Aloe Vera (Soothing)", category: "Natural" },
+  { brand: "Hydrocolloid Patches", generic: "Acne Absorption Patch", category: "Physical Treatment" },
+  { brand: "Accutane / Isotretinoin", generic: "Isotretinoin (Oral Retinoid — Prescription)", category: "Prescription Oral" },
+  { brand: "Doxycycline", generic: "Doxycycline (Oral Antibiotic — Prescription)", category: "Prescription Oral" },
+  { brand: "Spironolactone", generic: "Spironolactone (Hormonal — Prescription)", category: "Prescription Oral" },
+  { brand: "Zinc Supplement", generic: "Zinc (Oral Supplement)", category: "Supplement" },
+];
 
 const zoneLabelMap: Record<string, string> = Object.fromEntries(
   zonesDef.map((z) => [z.id, z.label])
 );
 
+type ZoneSnapshot = Map<string, ZoneData>;
+
 export default function Home() {
   const [, setLocation] = useLocation();
   const [currentCondition, setCurrentCondition] = useState<SkinCondition>("Acne");
-  const [zones, setZones] = useState<Map<string, ZoneData>>(new Map());
+  const [zones, setZones] = useState<ZoneSnapshot>(new Map());
   const [mode, setMode] = useState<DollMode>("mark");
-  const [simulatedDay, setSimulatedDay] = useState(0);
   const [medicationTarget, setMedicationTarget] = useState<string | null>(null);
-  const { setLastDiagnosis } = useDiagnosisContext();
+  const [medSearch, setMedSearch] = useState("");
+  const history = useRef<ZoneSnapshot[]>([]);
+  const { setLastDiagnosis, setSessionAreas } = useDiagnosisContext();
   const diagnoseMutation = useDiagnose();
 
-  // Compute what zones look like at the simulated day
-  const displayZones = useMemo(() => {
-    if (simulatedDay === 0) return zones;
-    const result = new Map<string, ZoneData>();
-    for (const [id, data] of zones.entries()) {
-      result.set(id, { ...data, severity: simulateSeverity(data, simulatedDay) });
-    }
-    return result;
-  }, [zones, simulatedDay]);
+  const pushHistory = (current: ZoneSnapshot) => {
+    history.current = [...history.current.slice(-30), new Map(current)];
+  };
+
+  const handleUndo = () => {
+    if (history.current.length === 0) return;
+    const prev = history.current[history.current.length - 1];
+    history.current = history.current.slice(0, -1);
+    setZones(new Map(prev));
+  };
 
   const handleZoneInteract = (region: string, amount: number = 2) => {
     setZones((prev) => {
+      pushHistory(prev);
       const next = new Map(prev);
       const existing = next.get(region);
       let newSeverity: number;
@@ -120,35 +123,31 @@ export default function Home() {
     setZones((prev) => {
       const next = new Map(prev);
       const existing = next.get(medicationTarget);
-      if (existing) {
-        next.set(medicationTarget, { ...existing, medication: med });
-      }
+      if (existing) next.set(medicationTarget, { ...existing, medication: med });
       return next;
     });
     setMedicationTarget(null);
+    setMedSearch("");
   };
 
   const handleDiagnose = () => {
-    const affectedAreas = Array.from(zones.entries()).map(([region, data]) => ({
+    const areas = Array.from(zones.entries()).map(([region, data]) => ({
       region,
       condition: data.condition.toLowerCase(),
       severity: data.severity,
+      medication: data.medication ?? null,
     }));
-    if (affectedAreas.length === 0) return;
+    if (areas.length === 0) return;
 
-    const medicationNotes = Array.from(zones.entries())
-      .filter(([, d]) => d.medication)
-      .map(([id, d]) => `${zoneLabelMap[id] ?? id}: applying ${d.medication}`)
+    const medicationNotes = areas
+      .filter((a) => a.medication)
+      .map((a) => `${zoneLabelMap[a.region] ?? a.region}: applying ${a.medication}`)
       .join("; ");
 
+    setSessionAreas(areas);
+
     diagnoseMutation.mutate(
-      {
-        data: {
-          affectedAreas,
-          age: null,
-          additionalNotes: medicationNotes || null,
-        },
-      },
+      { data: { affectedAreas: areas, age: null, additionalNotes: medicationNotes || null } },
       {
         onSuccess: (result) => {
           setLastDiagnosis(result);
@@ -160,11 +159,18 @@ export default function Home() {
 
   const medicationZoneData = medicationTarget ? zones.get(medicationTarget) : null;
 
+  const filteredMeds = BRAND_MEDICATIONS.filter(
+    (m) =>
+      medSearch.trim() === "" ||
+      m.brand.toLowerCase().includes(medSearch.toLowerCase()) ||
+      m.generic.toLowerCase().includes(medSearch.toLowerCase()) ||
+      m.category.toLowerCase().includes(medSearch.toLowerCase())
+  );
+
   return (
     <div className="min-h-[100dvh] w-full bg-background flex flex-col pt-6 pb-20 px-4">
       <div className="max-w-md mx-auto w-full flex-1 flex flex-col gap-4">
 
-        {/* Header */}
         <header className="text-center">
           <motion.h1
             initial={{ opacity: 0, y: -10 }}
@@ -182,54 +188,6 @@ export default function Home() {
             Tap or hold areas to mark skin concerns
           </motion.p>
         </header>
-
-        {/* Day Counter */}
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="flex items-center justify-center gap-3"
-        >
-          <button
-            onClick={() => setSimulatedDay((d) => Math.max(0, d - 1))}
-            disabled={simulatedDay === 0}
-            data-testid="day-decrement"
-            className="p-1.5 rounded-full hover:bg-muted disabled:opacity-30 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-foreground" />
-          </button>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={simulatedDay}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              transition={{ duration: 0.15 }}
-              className={cn(
-                "flex flex-col items-center min-w-[90px]",
-              )}
-            >
-              <span className="text-xl font-bold text-foreground">
-                {simulatedDay === 0 ? "Today" : `Day ${simulatedDay}`}
-              </span>
-              {simulatedDay > 0 && (
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Simulated
-                </span>
-              )}
-            </motion.div>
-          </AnimatePresence>
-
-          <button
-            onClick={() => setSimulatedDay((d) => Math.min(30, d + 1))}
-            disabled={simulatedDay === 30}
-            data-testid="day-increment"
-            className="p-1.5 rounded-full hover:bg-muted disabled:opacity-30 transition-colors"
-          >
-            <ChevronRight className="w-5 h-5 text-foreground" />
-          </button>
-        </motion.div>
 
         {/* Mode Toggle */}
         <div className="flex rounded-xl overflow-hidden border border-border bg-muted/40 p-0.5 gap-0.5">
@@ -260,7 +218,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Condition Pills (only in mark mode) */}
+        {/* Condition pills */}
         <AnimatePresence>
           {mode === "mark" && (
             <motion.div
@@ -290,7 +248,6 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Medication mode hint */}
         <AnimatePresence>
           {mode === "medicate" && (
             <motion.div
@@ -299,7 +256,7 @@ export default function Home() {
               exit={{ opacity: 0 }}
               className="text-center text-xs text-muted-foreground bg-green-50 border border-green-100 rounded-xl py-2 px-4"
             >
-              Tap any marked zone to assign a medication
+              Tap any marked zone (red area) to assign a medication
             </motion.div>
           )}
         </AnimatePresence>
@@ -307,44 +264,40 @@ export default function Home() {
         {/* Body Doll */}
         <div className="flex-1 flex items-start justify-center relative">
           <BodyDoll
-            zones={displayZones}
+            zones={zones}
             currentCondition={currentCondition}
             mode={mode}
             onZoneInteract={(id) => handleZoneInteract(id, 2)}
             onZoneInteractHold={(id) => handleZoneInteract(id, 1)}
-            onZoneMedicateClick={(id) => setMedicationTarget(id)}
+            onZoneMedicateClick={(id) => { setMedicationTarget(id); setMedSearch(""); }}
           />
-          <Button
-            variant="outline"
-            size="icon"
-            data-testid="reset-button"
-            className="absolute top-0 right-0 rounded-full shadow-sm bg-white"
-            onClick={() => { setZones(new Map()); setSimulatedDay(0); }}
-            title="Reset"
-          >
-            <RotateCcw className="w-4 h-4 text-muted-foreground" />
-          </Button>
+
+          {/* Undo + Reset controls */}
+          <div className="absolute top-0 right-0 flex flex-col gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              data-testid="button-undo"
+              className="rounded-full shadow-sm bg-white"
+              onClick={handleUndo}
+              disabled={history.current.length === 0}
+              title="Undo"
+            >
+              <Undo2 className="w-4 h-4 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              data-testid="reset-button"
+              className="rounded-full shadow-sm bg-white"
+              onClick={() => { pushHistory(zones); setZones(new Map()); }}
+              title="Reset"
+            >
+              <RotateCcw className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
 
-        {/* Simulate day note */}
-        {simulatedDay > 0 && zones.size > 0 && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center text-xs text-muted-foreground"
-          >
-            Showing projected skin state on Day {simulatedDay}.
-            {" "}
-            <button
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-              onClick={() => setSimulatedDay(0)}
-            >
-              Back to today
-            </button>
-          </motion.p>
-        )}
-
-        {/* Get Diagnosis */}
         <div className="mt-auto pt-2">
           <Button
             data-testid="button-diagnose"
@@ -366,12 +319,12 @@ export default function Home() {
       {/* Medication Dialog */}
       <Dialog
         open={medicationTarget !== null}
-        onOpenChange={(open) => { if (!open) setMedicationTarget(null); }}
+        onOpenChange={(open) => { if (!open) { setMedicationTarget(null); setMedSearch(""); } }}
       >
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>
-              {medicationTarget ? zoneLabelMap[medicationTarget] ?? medicationTarget : ""}
+              {medicationTarget ? (zoneLabelMap[medicationTarget] ?? medicationTarget) : ""}
             </DialogTitle>
             {medicationZoneData && (
               <p className="text-sm text-muted-foreground">
@@ -380,24 +333,44 @@ export default function Home() {
             )}
           </DialogHeader>
 
-          <div className="space-y-4 pt-2">
-            <p className="text-sm font-medium text-foreground">Select a medication being applied:</p>
-            <div className="flex flex-wrap gap-2">
-              {MEDICATIONS.map((med) => {
-                const isActive = medicationZoneData?.medication === med;
+          <div className="space-y-3 pt-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                data-testid="medication-search"
+                placeholder="Search brand or ingredient..."
+                value={medSearch}
+                onChange={(e) => setMedSearch(e.target.value)}
+                className="pl-9 rounded-xl"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+              {filteredMeds.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No medications found</p>
+              )}
+              {filteredMeds.map((med) => {
+                const isActive = medicationZoneData?.medication === med.brand;
                 return (
                   <button
-                    key={med}
-                    data-testid={`medication-${med.replace(/\s+/g, "-")}`}
-                    onClick={() => handleApplyMedication(isActive ? undefined : med)}
+                    key={med.brand}
+                    data-testid={`medication-${med.brand.replace(/\s+/g, "-")}`}
+                    onClick={() => handleApplyMedication(isActive ? undefined : med.brand)}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                      "w-full text-left px-3 py-2 rounded-xl border transition-all flex flex-col gap-0.5",
                       isActive
-                        ? "bg-green-100 border-green-400 text-green-700 shadow-sm"
-                        : "bg-white border-border text-foreground hover:bg-muted/30"
+                        ? "bg-green-50 border-green-300 text-green-800"
+                        : "bg-white border-border hover:bg-muted/30"
                     )}
                   >
-                    {med}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{med.brand}</span>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        {med.category}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{med.generic}</span>
                   </button>
                 );
               })}

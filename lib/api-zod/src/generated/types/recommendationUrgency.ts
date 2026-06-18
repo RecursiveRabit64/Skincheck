@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * How urgent this recommendation is (low, medium, high)
- */
 export type RecommendationUrgency = typeof RecommendationUrgency[keyof typeof RecommendationUrgency];
 
 

@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ChatInput,
+  ChatResult,
   DiagnosisInput,
   DiagnosisResult,
   ErrorResponse,
@@ -47,7 +49,6 @@ export const getHealthCheckUrl = () => {
 }
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const healthCheck = async ( options?: RequestInit): Promise<HealthStatus> => {
@@ -125,7 +126,6 @@ export const getDiagnoseUrl = () => {
 }
 
 /**
- * Takes a body map with affected areas and conditions, returns AI diagnosis and recommendations
  * @summary AI skin diagnosis
  */
 export const diagnose = async (diagnosisInput: DiagnosisInput, options?: RequestInit): Promise<DiagnosisResult> => {
@@ -186,5 +186,76 @@ export const useDiagnose = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getDiagnoseMutationOptions(options));
+    }
+
+export const getChatUrl = () => {
+
+
+
+
+  return `/api/chat`
+}
+
+/**
+ * @summary Chat about skin condition with AI
+ */
+export const chat = async (chatInput: ChatInput, options?: RequestInit): Promise<ChatResult> => {
+
+  return customFetch<ChatResult>(getChatUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      chatInput,)
+  }
+);}
+
+
+
+
+export const getChatMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chat>>, TError,{data: BodyType<ChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof chat>>, TError,{data: BodyType<ChatInput>}, TContext> => {
+
+const mutationKey = ['chat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof chat>>, {data: BodyType<ChatInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  chat(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChatMutationResult = NonNullable<Awaited<ReturnType<typeof chat>>>
+    export type ChatMutationBody = BodyType<ChatInput>
+    export type ChatMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Chat about skin condition with AI
+ */
+export const useChat = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chat>>, TError,{data: BodyType<ChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof chat>>,
+        TError,
+        {data: BodyType<ChatInput>},
+        TContext
+      > => {
+      return useMutation(getChatMutationOptions(options));
     }
 

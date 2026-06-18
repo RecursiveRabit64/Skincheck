@@ -7,6 +7,10 @@
  */
 
 export * from './affectedArea';
+export * from './chatInput';
+export * from './chatMessage';
+export * from './chatMessageRole';
+export * from './chatResult';
 export * from './diagnosisInput';
 export * from './diagnosisResult';
 export * from './diagnosisResultConditionsItem';

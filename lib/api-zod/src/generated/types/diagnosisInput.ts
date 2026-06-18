@@ -7,22 +7,14 @@
  */
 import type { AffectedArea } from './affectedArea';
 
-/**
- * Body map data submitted for AI analysis
- */
 export interface DiagnosisInput {
-  /** List of affected body regions with conditions and severities */
   affectedAreas: AffectedArea[];
   /**
-     * Optional age of the user for context-aware diagnosis
      * @minimum 10
      * @maximum 120
      * @nullable
      */
   age?: number | null;
-  /**
-     * Any additional symptoms or context the user wants to include
-     * @nullable
-     */
+  /** @nullable */
   additionalNotes?: string | null;
 }

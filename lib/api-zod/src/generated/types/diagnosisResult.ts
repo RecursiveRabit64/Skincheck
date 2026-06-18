@@ -9,14 +9,9 @@ import type { DiagnosisResultConditionsItem } from './diagnosisResultConditionsI
 import type { Recommendation } from './recommendation';
 
 export interface DiagnosisResult {
-  /** Overall summary of the skin condition assessment */
   summary: string;
-  /** Possible skin conditions identified */
   conditions: DiagnosisResultConditionsItem[];
-  /** Actionable recommendations */
   recommendations: Recommendation[];
-  /** Medical disclaimer */
   disclaimer: string;
-  /** Whether the user should see a dermatologist urgently */
   seekDoctorUrgently: boolean;
 }

@@ -9,45 +9,30 @@ export interface HealthStatus {
   status: string;
 }
 
-/**
- * A region on the body doll with a specific skin condition and severity
- */
 export interface AffectedArea {
-  /** Body region identifier (e.g. "forehead", "left_cheek", "chest", "back") */
   region: string;
-  /** Type of skin condition (e.g. "acne", "rash", "eczema", "infection", "dryness") */
   condition: string;
   /**
-     * Severity level from 1 (mild) to 10 (severe), based on scratch intensity
      * @minimum 1
      * @maximum 10
      */
   severity: number;
+  /** @nullable */
+  medication?: string | null;
 }
 
-/**
- * Body map data submitted for AI analysis
- */
 export interface DiagnosisInput {
-  /** List of affected body regions with conditions and severities */
   affectedAreas: AffectedArea[];
   /**
-     * Optional age of the user for context-aware diagnosis
      * @minimum 10
      * @maximum 120
      * @nullable
      */
   age?: number | null;
-  /**
-     * Any additional symptoms or context the user wants to include
-     * @nullable
-     */
+  /** @nullable */
   additionalNotes?: string | null;
 }
 
-/**
- * How urgent this recommendation is (low, medium, high)
- */
 export type RecommendationUrgency = typeof RecommendationUrgency[keyof typeof RecommendationUrgency];
 
 
@@ -58,13 +43,9 @@ export const RecommendationUrgency = {
 } as const;
 
 export interface Recommendation {
-  /** Category of recommendation (e.g. "medication", "lifestyle", "see_doctor") */
   type: string;
-  /** Short title for the recommendation */
   title: string;
-  /** Detailed description of the recommendation */
   description: string;
-  /** How urgent this recommendation is (low, medium, high) */
   urgency: RecommendationUrgency;
 }
 
@@ -84,16 +65,39 @@ export type DiagnosisResultConditionsItem = {
 };
 
 export interface DiagnosisResult {
-  /** Overall summary of the skin condition assessment */
   summary: string;
-  /** Possible skin conditions identified */
   conditions: DiagnosisResultConditionsItem[];
-  /** Actionable recommendations */
   recommendations: Recommendation[];
-  /** Medical disclaimer */
   disclaimer: string;
-  /** Whether the user should see a dermatologist urgently */
   seekDoctorUrgently: boolean;
+}
+
+export type ChatMessageRole = typeof ChatMessageRole[keyof typeof ChatMessageRole];
+
+
+export const ChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+}
+
+export interface ChatInput {
+  messages: ChatMessage[];
+  /**
+     * Serialized summary of the diagnosis for AI context
+     * @nullable
+     */
+  diagnosisContext?: string | null;
+  /** Original body map data */
+  affectedAreas?: AffectedArea[];
+}
+
+export interface ChatResult {
+  reply: string;
 }
 
 export interface ErrorResponse {

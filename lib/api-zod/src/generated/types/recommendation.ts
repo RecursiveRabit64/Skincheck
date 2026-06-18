@@ -8,12 +8,8 @@
 import type { RecommendationUrgency } from './recommendationUrgency';
 
 export interface Recommendation {
-  /** Category of recommendation (e.g. "medication", "lifestyle", "see_doctor") */
   type: string;
-  /** Short title for the recommendation */
   title: string;
-  /** Detailed description of the recommendation */
   description: string;
-  /** How urgent this recommendation is (low, medium, high) */
   urgency: RecommendationUrgency;
 }
