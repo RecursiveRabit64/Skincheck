@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SkinCheck API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: diagnosis
+    description: AI-powered skin diagnosis
 paths:
   /healthz:
     get:
@@ -24,6 +26,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /diagnose:
+    post:
+      operationId: diagnose
+      tags: [diagnosis]
+      summary: AI skin diagnosis
+      description: Takes a body map with affected areas and conditions, returns AI diagnosis and recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiagnosisInput"
+      responses:
+        "200":
+          description: Diagnosis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosisResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +66,109 @@ components:
           type: string
       required:
         - status
-
+    AffectedArea:
+      type: object
+      description: A region on the body doll with a specific skin condition and severity
+      properties:
+        region:
+          type: string
+          description: Body region identifier (e.g. "forehead", "left_cheek", "chest", "back")
+        condition:
+          type: string
+          description: Type of skin condition (e.g. "acne", "rash", "eczema", "infection", "dryness")
+        severity:
+          type: integer
+          description: Severity level from 1 (mild) to 10 (severe), based on scratch intensity
+          minimum: 1
+          maximum: 10
+      required:
+        - region
+        - condition
+        - severity
+    DiagnosisInput:
+      type: object
+      description: Body map data submitted for AI analysis
+      properties:
+        affectedAreas:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffectedArea"
+          description: List of affected body regions with conditions and severities
+        age:
+          type: ["integer", "null"]
+          description: Optional age of the user for context-aware diagnosis
+          minimum: 10
+          maximum: 120
+        additionalNotes:
+          type: ["string", "null"]
+          description: Any additional symptoms or context the user wants to include
+      required:
+        - affectedAreas
+    Recommendation:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Category of recommendation (e.g. "medication", "lifestyle", "see_doctor")
+        title:
+          type: string
+          description: Short title for the recommendation
+        description:
+          type: string
+          description: Detailed description of the recommendation
+        urgency:
+          type: string
+          description: How urgent this recommendation is (low, medium, high)
+          enum: [low, medium, high]
+      required:
+        - type
+        - title
+        - description
+        - urgency
+    DiagnosisResult:
+      type: object
+      properties:
+        summary:
+          type: string
+          description: Overall summary of the skin condition assessment
+        conditions:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              likelihood:
+                type: string
+                enum: [possible, likely, very_likely]
+              description:
+                type: string
+            required:
+              - name
+              - likelihood
+              - description
+          description: Possible skin conditions identified
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+          description: Actionable recommendations
+        disclaimer:
+          type: string
+          description: Medical disclaimer
+        seekDoctorUrgently:
+          type: boolean
+          description: Whether the user should see a dermatologist urgently
+      required:
+        - summary
+        - conditions
+        - recommendations
+        - disclaimer
+        - seekDoctorUrgently
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
