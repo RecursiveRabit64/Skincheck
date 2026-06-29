@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import type { DiagnosisResult } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { DiagnosisResult } from "@workspace/api-client-react";
 import type { AreaEntry } from "@/lib/simulation";
 
 interface DiagnosisContextType {

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { simulateSeverity } from "@/lib/simulation";
-import type { Recommendation, DiagnosisResultConditionsItem } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Recommendation, DiagnosisResultConditionsItem } from "@workspace/api-client-react";
 
 interface ChatMessage {
   role: "user" | "assistant";

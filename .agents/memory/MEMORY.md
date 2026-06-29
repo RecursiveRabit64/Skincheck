@@ -1,0 +1,1 @@
+- [Orval Zod/Types re-export conflict](orval-zod-types-conflict.md) — named component schemas generate both a Zod const AND a TS interface causing TS2308 in api-zod barrel; fix is selective type-only re-exports.
