@@ -1,40 +1,44 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type { AuthUser } from "@/hooks/use-auth";
 
-export interface ChildProfile {
-  id: string;
-  parentId: string;
-  name: string;
-  ageRange: "5-7" | "8-12" | "13-17";
-  congenitalConditions: string[];
-  createdAt: string;
+export type UserType = "child" | "teen" | "parent";
+export type AgeRange = "5-7" | "8-12" | "13-17" | "18-35" | "35-55" | "55+";
+
+export interface UserProfile {
+  userType: UserType;
+  ageRange: AgeRange;
 }
 
-export type ActiveProfile =
-  | { type: "parent"; user: AuthUser }
-  | { type: "child"; profile: ChildProfile };
+const STORAGE_KEY = "skincheck_profile_v2";
 
 interface ProfileContextValue {
-  activeProfile: ActiveProfile | null;
-  setActiveProfile: (profile: ActiveProfile | null) => void;
-  switchProfile: () => void;
+  profile: UserProfile | null;
+  setProfile: (p: UserProfile) => void;
+  clearProfile: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [activeProfile, setActiveProfileState] = useState<ActiveProfile | null>(null);
+  const [profile, setProfileState] = useState<UserProfile | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    } catch {
+      return null;
+    }
+  });
 
-  const setActiveProfile = useCallback((profile: ActiveProfile | null) => {
-    setActiveProfileState(profile);
+  const setProfile = useCallback((p: UserProfile) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    setProfileState(p);
   }, []);
 
-  const switchProfile = useCallback(() => {
-    setActiveProfileState(null);
+  const clearProfile = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setProfileState(null);
   }, []);
 
   return (
-    <ProfileContext.Provider value={{ activeProfile, setActiveProfile, switchProfile }}>
+    <ProfileContext.Provider value={{ profile, setProfile, clearProfile }}>
       {children}
     </ProfileContext.Provider>
   );
@@ -42,6 +46,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
 export function useProfile(): ProfileContextValue {
   const ctx = useContext(ProfileContext);
-  if (!ctx) throw new Error("useProfile must be used inside ProfileProvider");
+  if (!ctx) throw new Error("useProfile must be inside ProfileProvider");
   return ctx;
 }

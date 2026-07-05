@@ -1,153 +1,104 @@
-import { useState, useRef } from "react";
-import { useLocation } from "wouter";
+import { useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDiagnose } from "@workspace/api-client-react";
 import { BodyDoll, type SkinCondition, type ZoneData, type DollMode, type DollView, zonesDef } from "@/components/BodyDoll";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useDiagnosisContext } from "@/context/DiagnosisContext";
-import { RotateCcw, Sparkles, Pill, Undo2, Search, ChevronDown, FlipHorizontal } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useProfile, type AgeRange } from "@/context/ProfileContext";
+import { RotateCcw, Pill, Undo2, Search, ChevronDown, FlipHorizontal, CheckCircle2, Settings2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── Condition Groups ─────────────────────────────────────────────────────────
+// ── Condition Groups by Age ───────────────────────────────────────────────────
 
 interface ConditionGroup {
   label: string;
   conditions: SkinCondition[];
 }
 
-const CONDITION_GROUPS: ConditionGroup[] = [
-  {
-    label: "Acne",
-    conditions: ["Acne Vulgaris", "Cystic Acne", "Blackheads", "Whiteheads", "Hormonal Acne", "Milia"],
-  },
-  {
-    label: "Eczema",
-    conditions: ["Atopic Dermatitis", "Contact Dermatitis", "Dyshidrotic Eczema", "Neurodermatitis", "Seborrheic Dermatitis"],
-  },
-  {
-    label: "Rash / Allergic",
-    conditions: ["Hives", "Pityriasis Rosea", "Drug Rash", "Heat Rash"],
-  },
-  {
-    label: "Inflammatory",
-    conditions: ["Psoriasis", "Rosacea", "Perioral Dermatitis"],
-  },
-  {
-    label: "Infection",
-    conditions: ["Bacterial Infection", "Impetigo", "Folliculitis"],
-  },
-  {
-    label: "Fungal",
-    conditions: ["Ringworm", "Tinea Versicolor", "Athlete's Foot", "Candidiasis"],
-  },
-  {
-    label: "Other",
-    conditions: ["Dry Skin", "Sunburn", "Keratosis Pilaris", "Warts"],
-  },
-];
+const CONDITION_GROUPS_BY_AGE: Record<AgeRange, ConditionGroup[]> = {
+  "5-7": [
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Bug Bite", "Sunburn"] },
+    { label: "Eczema & Dry Skin", conditions: ["Eczema", "Dry Skin"] },
+    { label: "Infection", conditions: ["Ringworm", "Warts"] },
+  ],
+  "8-12": [
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Bug Bite", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema & Dry Skin", conditions: ["Eczema", "Dry Skin"] },
+    { label: "Skin Condition", conditions: ["Psoriasis", "Keratosis Pilaris"] },
+    { label: "Infection", conditions: ["Ringworm", "Fungal Rash", "Warts"] },
+  ],
+  "13-17": [
+    { label: "Acne", conditions: ["Acne", "Blackheads", "Whiteheads", "Cystic Acne"] },
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema & Dry Skin", conditions: ["Eczema", "Dry Skin"] },
+    { label: "Skin Condition", conditions: ["Psoriasis", "Keratosis Pilaris"] },
+    { label: "Infection", conditions: ["Ringworm", "Athlete's Foot", "Warts"] },
+  ],
+  "18-35": [
+    { label: "Acne", conditions: ["Acne", "Blackheads", "Cystic Acne"] },
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema", conditions: ["Eczema", "Seborrheic Dermatitis", "Dry Skin"] },
+    { label: "Inflammatory", conditions: ["Psoriasis", "Rosacea"] },
+    { label: "Infection", conditions: ["Ringworm", "Athlete's Foot", "Warts"] },
+  ],
+  "35-55": [
+    { label: "Acne", conditions: ["Acne", "Cystic Acne"] },
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema", conditions: ["Eczema", "Seborrheic Dermatitis", "Dry Skin"] },
+    { label: "Inflammatory", conditions: ["Psoriasis", "Rosacea"] },
+    { label: "Infection", conditions: ["Ringworm", "Athlete's Foot", "Warts", "Keratosis Pilaris"] },
+  ],
+  "55+": [
+    { label: "Rash & Irritation", conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema & Dry Skin", conditions: ["Eczema", "Dry Skin", "Seborrheic Dermatitis"] },
+    { label: "Inflammatory", conditions: ["Psoriasis", "Rosacea"] },
+    { label: "Infection", conditions: ["Ringworm", "Warts", "Keratosis Pilaris"] },
+  ],
+};
 
-function getConditionGroup(condition: SkinCondition): string {
-  for (const g of CONDITION_GROUPS) {
-    if (g.conditions.includes(condition)) return g.label;
-  }
-  return "Other";
-}
-
-// ── Medication Bank ──────────────────────────────────────────────────────────
+// ── Medication Bank ───────────────────────────────────────────────────────────
 
 interface MedicationEntry {
   brand: string;
   generic: string;
   otc: boolean;
-  forGroups: string[]; // group labels, or ["all"]
+  forGroups: string[];
 }
 
 const MEDICATIONS: MedicationEntry[] = [
-  // Acne — OTC
   { brand: "PanOxyl / Proactiv", generic: "Benzoyl Peroxide", otc: true, forGroups: ["Acne", "Infection"] },
-  { brand: "Stridex / Paula's Choice BHA", generic: "Salicylic Acid", otc: true, forGroups: ["Acne", "Inflammatory"] },
+  { brand: "Stridex BHA", generic: "Salicylic Acid", otc: true, forGroups: ["Acne", "Inflammatory"] },
   { brand: "Differin 0.1%", generic: "Adapalene (OTC)", otc: true, forGroups: ["Acne"] },
-  { brand: "The Ordinary Niacinamide", generic: "Niacinamide", otc: true, forGroups: ["Acne", "Inflammatory"] },
-  { brand: "Mario Badescu Drying Lotion", generic: "Sulfur Wash", otc: true, forGroups: ["Acne"] },
   { brand: "Hero Mighty Patch", generic: "Hydrocolloid Patches", otc: true, forGroups: ["Acne"] },
-  { brand: "Tea Tree Oil", generic: "Melaleuca Oil (Antimicrobial)", otc: true, forGroups: ["Acne", "Infection", "Fungal"] },
-  // Acne — Rx
-  { brand: "Retin-A / Retin-A Micro", generic: "Tretinoin (Rx)", otc: false, forGroups: ["Acne"] },
-  { brand: "Epiduo / Differin 0.3%", generic: "Adapalene Stronger (Rx)", otc: false, forGroups: ["Acne"] },
-  { brand: "Cleocin T / generic", generic: "Clindamycin (Rx)", otc: false, forGroups: ["Acne", "Infection"] },
-  { brand: "Benzaclin / Duac", generic: "Clindamycin + Benzoyl Peroxide (Rx)", otc: false, forGroups: ["Acne"] },
-  { brand: "Aczone", generic: "Dapsone (Rx)", otc: false, forGroups: ["Acne"] },
-  { brand: "Accutane / Absorica", generic: "Isotretinoin (Rx) — oral", otc: false, forGroups: ["Acne"] },
-  { brand: "Doxycycline", generic: "Doxycycline (Rx) — oral antibiotic", otc: false, forGroups: ["Acne", "Infection", "Inflammatory"] },
-  { brand: "Spironolactone", generic: "Spironolactone (Rx) — oral hormonal", otc: false, forGroups: ["Acne"] },
-  { brand: "Tazorac", generic: "Tazarotene (Rx)", otc: false, forGroups: ["Acne", "Inflammatory"] },
-
-  // Eczema — OTC
-  { brand: "Cortizone-10 / generic HC", generic: "Hydrocortisone 1% (OTC)", otc: true, forGroups: ["Eczema", "Rash / Allergic", "Inflammatory"] },
-  { brand: "Aveeno Eczema Therapy", generic: "Colloidal Oatmeal Cream", otc: true, forGroups: ["Eczema", "Rash / Allergic"] },
-  { brand: "Benadryl / Zyrtec / Claritin", generic: "Antihistamine (OTC)", otc: true, forGroups: ["Eczema", "Rash / Allergic"] },
-  { brand: "Calamine Lotion", generic: "Calamine (OTC)", otc: true, forGroups: ["Eczema", "Rash / Allergic"] },
-  { brand: "CeraVe / Cetaphil", generic: "Ceramide Moisturizer", otc: true, forGroups: ["Eczema", "Other", "all"] },
-  // Eczema — Rx
-  { brand: "Triamcinolone cream", generic: "Triamcinolone (Rx)", otc: false, forGroups: ["Eczema", "Inflammatory", "Rash / Allergic"] },
-  { brand: "Temovate", generic: "Clobetasol (Rx)", otc: false, forGroups: ["Eczema", "Inflammatory"] },
-  { brand: "Protopic", generic: "Tacrolimus (Rx)", otc: false, forGroups: ["Eczema"] },
-  { brand: "Elidel", generic: "Pimecrolimus (Rx)", otc: false, forGroups: ["Eczema"] },
-  { brand: "Eucrisa", generic: "Crisaborole (Rx)", otc: false, forGroups: ["Eczema"] },
-  { brand: "Dupixent", generic: "Dupilumab (Rx) — injectable biologic", otc: false, forGroups: ["Eczema"] },
-  { brand: "Hydroxyzine / Atarax", generic: "Hydroxyzine (Rx)", otc: false, forGroups: ["Eczema", "Rash / Allergic"] },
-
-  // Rash / Allergic — Rx
-  { brand: "Prednisone", generic: "Prednisone (Rx) — oral steroid", otc: false, forGroups: ["Rash / Allergic", "Inflammatory", "Eczema"] },
-  { brand: "Betamethasone cream", generic: "Betamethasone (Rx)", otc: false, forGroups: ["Rash / Allergic", "Eczema", "Inflammatory"] },
-
-  // Inflammatory (Psoriasis / Rosacea) — OTC
-  { brand: "Neutrogena T/Gel", generic: "Coal Tar", otc: true, forGroups: ["Inflammatory"] },
-  { brand: "Head & Shoulders", generic: "Zinc Pyrithione (OTC)", otc: true, forGroups: ["Inflammatory", "Fungal"] },
-  // Inflammatory — Rx
-  { brand: "Calcipotriol / Dovonex", generic: "Calcipotriol (Rx)", otc: false, forGroups: ["Inflammatory"] },
-  { brand: "Taclonex", generic: "Calcipotriol + Betamethasone (Rx)", otc: false, forGroups: ["Inflammatory"] },
-  { brand: "Methotrexate", generic: "Methotrexate (Rx) — oral", otc: false, forGroups: ["Inflammatory"] },
-  { brand: "Humira / Skyrizi / Taltz", generic: "Biologic (Rx) — injectable", otc: false, forGroups: ["Inflammatory"] },
-  { brand: "Soolantra", generic: "Ivermectin Cream (Rx) — for rosacea", otc: false, forGroups: ["Inflammatory"] },
-  { brand: "Metronidazole cream", generic: "Metronidazole (Rx) — for rosacea", otc: false, forGroups: ["Inflammatory"] },
-
-  // Infection — OTC
-  { brand: "Neosporin", generic: "Triple Antibiotic Ointment (OTC)", otc: true, forGroups: ["Infection"] },
-  { brand: "Bacitracin", generic: "Bacitracin (OTC)", otc: true, forGroups: ["Infection"] },
-  // Infection — Rx
-  { brand: "Bactroban", generic: "Mupirocin (Rx)", otc: false, forGroups: ["Infection"] },
-  { brand: "Cephalexin", generic: "Cephalexin (Rx) — oral", otc: false, forGroups: ["Infection"] },
-  { brand: "Amoxicillin / Augmentin", generic: "Amoxicillin (Rx) — oral", otc: false, forGroups: ["Infection"] },
-  { brand: "Trimethoprim-Sulfamethoxazole", generic: "TMP-SMX (Rx) — oral", otc: false, forGroups: ["Infection"] },
-
-  // Fungal — OTC
-  { brand: "Lotrimin / Clotrimazole", generic: "Clotrimazole (OTC)", otc: true, forGroups: ["Fungal"] },
-  { brand: "Tinactin", generic: "Tolnaftate (OTC)", otc: true, forGroups: ["Fungal"] },
-  { brand: "Lamisil AT", generic: "Terbinafine (OTC)", otc: true, forGroups: ["Fungal"] },
-  { brand: "Monistat 7", generic: "Miconazole (OTC)", otc: true, forGroups: ["Fungal"] },
-  { brand: "Selsun Blue", generic: "Selenium Sulfide (OTC)", otc: true, forGroups: ["Fungal"] },
-  // Fungal — Rx
-  { brand: "Nizoral", generic: "Ketoconazole (Rx/OTC)", otc: false, forGroups: ["Fungal", "Inflammatory"] },
-  { brand: "Fluconazole (Diflucan)", generic: "Fluconazole (Rx) — oral", otc: false, forGroups: ["Fungal"] },
-  { brand: "Itraconazole (Sporanox)", generic: "Itraconazole (Rx) — oral", otc: false, forGroups: ["Fungal"] },
-
-  // Other / Universal — OTC
-  { brand: "Aquaphor / Vaseline", generic: "Petrolatum Healing Ointment", otc: true, forGroups: ["Other", "Eczema"] },
-  { brand: "Eucerin / Vanicream", generic: "Urea Moisturizing Cream", otc: true, forGroups: ["Other", "Eczema"] },
-  { brand: "Aloe Vera Gel", generic: "Aloe Vera (Soothing)", otc: true, forGroups: ["Other", "Rash / Allergic"] },
-  { brand: "Sunscreen SPF 30+", generic: "Broad-Spectrum Sunscreen", otc: true, forGroups: ["Other", "Acne", "Inflammatory"] },
-  { brand: "Zinc Oxide cream", generic: "Zinc Oxide (OTC)", otc: true, forGroups: ["Other", "Eczema", "Rash / Allergic"] },
-  { brand: "Vitamin E oil", generic: "Tocopherol (Healing)", otc: true, forGroups: ["Other"] },
-  // Other — Rx
-  { brand: "Urea 40% cream", generic: "Urea 40% (Rx) — for KP/thick skin", otc: false, forGroups: ["Other"] },
-  { brand: "Aldara / Zyclara", generic: "Imiquimod (Rx) — for warts", otc: false, forGroups: ["Other"] },
-  { brand: "Cantharidin", generic: "Cantharidin (Rx) — for warts", otc: false, forGroups: ["Other"] },
+  { brand: "Retin-A", generic: "Tretinoin (Rx)", otc: false, forGroups: ["Acne"] },
+  { brand: "Clindamycin (Rx)", generic: "Clindamycin cream", otc: false, forGroups: ["Acne", "Infection"] },
+  { brand: "Cortizone-10", generic: "Hydrocortisone 1% (OTC)", otc: true, forGroups: ["Eczema & Dry Skin", "Rash & Irritation", "Inflammatory", "Eczema"] },
+  { brand: "Aveeno Eczema Therapy", generic: "Colloidal Oatmeal", otc: true, forGroups: ["Eczema & Dry Skin", "Rash & Irritation", "Eczema"] },
+  { brand: "Benadryl / Zyrtec", generic: "Antihistamine (OTC)", otc: true, forGroups: ["Rash & Irritation", "Eczema & Dry Skin", "Eczema"] },
+  { brand: "Calamine Lotion", generic: "Calamine (OTC)", otc: true, forGroups: ["Rash & Irritation", "Eczema & Dry Skin"] },
+  { brand: "CeraVe / Cetaphil", generic: "Ceramide Moisturizer", otc: true, forGroups: ["all"] },
+  { brand: "Protopic (Rx)", generic: "Tacrolimus cream", otc: false, forGroups: ["Eczema & Dry Skin", "Eczema"] },
+  { brand: "Dupixent (Rx)", generic: "Dupilumab injectable", otc: false, forGroups: ["Eczema & Dry Skin", "Eczema"] },
+  { brand: "Coal Tar (Neutrogena T/Gel)", generic: "Coal Tar Shampoo", otc: true, forGroups: ["Inflammatory"] },
+  { brand: "Calcipotriol / Dovonex (Rx)", generic: "Calcipotriol cream", otc: false, forGroups: ["Inflammatory"] },
+  { brand: "Neosporin", generic: "Triple Antibiotic Ointment", otc: true, forGroups: ["Infection"] },
+  { brand: "Bactroban (Rx)", generic: "Mupirocin cream", otc: false, forGroups: ["Infection"] },
+  { brand: "Lotrimin / Clotrimazole", generic: "Clotrimazole (OTC)", otc: true, forGroups: ["Infection", "Fungal Rash", "Athlete's Foot"] },
+  { brand: "Lamisil AT", generic: "Terbinafine (OTC)", otc: true, forGroups: ["Infection", "Fungal Rash", "Athlete's Foot"] },
+  { brand: "Aquaphor / Vaseline", generic: "Petrolatum Ointment", otc: true, forGroups: ["all"] },
+  { brand: "Aloe Vera Gel", generic: "Aloe Vera (Soothing)", otc: true, forGroups: ["Rash & Irritation", "Sunburn"] },
+  { brand: "Sunscreen SPF 30+", generic: "Broad-Spectrum Sunscreen", otc: true, forGroups: ["all"] },
 ];
 
-// ── Zone label map ────────────────────────────────────────────────────────────
+function getConditionGroup(condition: SkinCondition, groups: ConditionGroup[]): string {
+  for (const g of groups) {
+    if (g.conditions.includes(condition)) return g.label;
+  }
+  return "";
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const zoneLabelMap: Record<string, string> = Object.fromEntries(
   zonesDef.map((z) => [z.id, z.label])
@@ -155,18 +106,31 @@ const zoneLabelMap: Record<string, string> = Object.fromEntries(
 
 type ZoneSnapshot = Map<string, ZoneData>;
 
+const USER_TYPE_LABELS: Record<string, string> = {
+  child: "Child",
+  teen: "Teen",
+  parent: "Parent",
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function Home() {
-  const [, setLocation] = useLocation();
-  const [currentCondition, setCurrentCondition] = useState<SkinCondition>("Acne Vulgaris");
-  const [openGroup, setOpenGroup] = useState<string>("Acne");
+  const { profile, clearProfile } = useProfile();
+  const { toast } = useToast();
+
+  const ageRange = profile?.ageRange ?? "13-17";
+  const conditionGroups = CONDITION_GROUPS_BY_AGE[ageRange];
+  const defaultCondition = conditionGroups[0].conditions[0];
+
+  const [currentCondition, setCurrentCondition] = useState<SkinCondition>(defaultCondition);
+  const [openGroup, setOpenGroup] = useState<string>(conditionGroups[0].label);
   const [zones, setZones] = useState<ZoneSnapshot>(new Map());
   const [mode, setMode] = useState<DollMode>("mark");
   const [dollView, setDollView] = useState<DollView>("front");
   const [medicationTarget, setMedicationTarget] = useState<string | null>(null);
   const [medSearch, setMedSearch] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
   const history = useRef<ZoneSnapshot[]>([]);
-  const { setLastDiagnosis, setSessionAreas } = useDiagnosisContext();
-  const diagnoseMutation = useDiagnose();
 
   const pushHistory = (current: ZoneSnapshot) => {
     history.current = [...history.current.slice(-30), new Map(current)];
@@ -187,7 +151,7 @@ export default function Home() {
       let newSeverity: number;
       if (existing && existing.condition === currentCondition) {
         newSeverity = existing.severity + amount;
-        if (newSeverity > 10) newSeverity = 1; // cycle back
+        if (newSeverity > 10) newSeverity = 1;
       } else {
         newSeverity = Math.min(amount, 10);
       }
@@ -212,72 +176,58 @@ export default function Home() {
     setMedSearch("");
   };
 
-  const handleDiagnose = () => {
-    const areas = Array.from(zones.entries()).map(([region, data]) => ({
-      region,
-      condition: data.condition,
-      severity: data.severity,
-      medication: data.medication ?? null,
-    }));
-    if (areas.length === 0) return;
-
-    const medNotes = areas
-      .filter((a) => a.medication)
-      .map((a) => `${zoneLabelMap[a.region] ?? a.region}: applying ${a.medication}`)
-      .join("; ");
-
-    setSessionAreas(areas);
-
-    diagnoseMutation.mutate(
-      { data: { affectedAreas: areas, age: null, additionalNotes: medNotes || null } },
-      {
-        onSuccess: (result) => {
-          setLastDiagnosis(result);
-          setLocation("/diagnosis");
-        },
-      }
-    );
+  const handleFinish = () => {
+    const count = zones.size;
+    if (count === 0) return;
+    toast({
+      title: "Check-in saved!",
+      description: `${count} area${count !== 1 ? "s" : ""} recorded. Bring this to your doctor visit.`,
+    });
+    pushHistory(zones);
+    setZones(new Map());
+    setMode("mark");
   };
 
-  // Medication dialog filtering
   const medicationZoneData = medicationTarget ? zones.get(medicationTarget) : null;
-  const conditionGroup = medicationZoneData ? getConditionGroup(medicationZoneData.condition) : null;
+  const conditionGroup = medicationZoneData
+    ? getConditionGroup(medicationZoneData.condition, conditionGroups)
+    : null;
 
-  const baseMeds = MEDICATIONS.filter((m) =>
-    conditionGroup
-      ? m.forGroups.includes(conditionGroup) || m.forGroups.includes("all")
-      : true
-  );
-
-  const filteredMeds = baseMeds.filter((m) =>
-    medSearch.trim() === "" ||
-    m.brand.toLowerCase().includes(medSearch.toLowerCase()) ||
-    m.generic.toLowerCase().includes(medSearch.toLowerCase())
-  );
+  const filteredMeds = useMemo(() => {
+    const base = MEDICATIONS.filter(
+      (m) =>
+        m.forGroups.includes("all") ||
+        (conditionGroup && m.forGroups.includes(conditionGroup))
+    );
+    if (!medSearch.trim()) return base;
+    const q = medSearch.toLowerCase();
+    return base.filter(
+      (m) => m.brand.toLowerCase().includes(q) || m.generic.toLowerCase().includes(q)
+    );
+  }, [conditionGroup, medSearch]);
 
   const otcMeds = filteredMeds.filter((m) => m.otc);
   const rxMeds = filteredMeds.filter((m) => !m.otc);
 
   return (
-    <div className="min-h-[100dvh] w-full bg-background flex flex-col pt-6 pb-24 px-4">
-      <div className="max-w-md mx-auto w-full flex-1 flex flex-col gap-4">
+    <div className="min-h-[100dvh] w-full bg-background flex flex-col pt-4 pb-24 px-4">
+      <div className="max-w-md mx-auto w-full flex-1 flex flex-col gap-3">
 
-        <header className="text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl font-bold tracking-tight text-foreground"
+        {/* Header */}
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Today's Check-in</h1>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              {profile ? `${USER_TYPE_LABELS[profile.userType]} · ${profile.ageRange}` : "Tap zones to mark concerns"}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 rounded-full hover:bg-muted/50 text-muted-foreground transition-colors"
+            title="Settings"
           >
-            SkinCheck
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-muted-foreground mt-1 text-sm"
-          >
-            For all ages &mdash; tap body zones to mark skin concerns
-          </motion.p>
+            <Settings2 className="w-5 h-5" />
+          </button>
         </header>
 
         {/* Mode Toggle */}
@@ -299,7 +249,7 @@ export default function Home() {
             )}
           >
             <Pill className="w-3.5 h-3.5" />
-            Add Medication
+            Medications
           </button>
         </div>
 
@@ -313,7 +263,7 @@ export default function Home() {
               className="overflow-hidden"
             >
               <div className="space-y-1.5">
-                {CONDITION_GROUPS.map((group) => {
+                {conditionGroups.map((group) => {
                   const isOpen = openGroup === group.label;
                   const groupHasSelected = group.conditions.includes(currentCondition);
                   return (
@@ -346,7 +296,7 @@ export default function Home() {
                             exit={{ opacity: 0, height: 0 }}
                             className="overflow-hidden"
                           >
-                            <div className="pt-1 pl-2 flex flex-wrap gap-1.5">
+                            <div className="pt-1.5 pl-2 flex flex-wrap gap-1.5">
                               {group.conditions.map((cond) => (
                                 <button
                                   key={cond}
@@ -381,12 +331,12 @@ export default function Home() {
               exit={{ opacity: 0 }}
               className="text-center text-xs text-muted-foreground bg-green-50 border border-green-100 rounded-xl py-2 px-4"
             >
-              Tap any marked zone to assign a medication specific to that condition
+              Tap any marked zone to log a medication for that area
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Front / Back View Toggle */}
+        {/* Front / Back Toggle */}
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setDollView("front")}
@@ -422,7 +372,10 @@ export default function Home() {
             view={dollView}
             onZoneInteract={(id) => handleZoneInteract(id, 2)}
             onZoneInteractHold={(id) => handleZoneInteract(id, 1)}
-            onZoneMedicateClick={(id) => { setMedicationTarget(id); setMedSearch(""); }}
+            onZoneMedicateClick={(id) => {
+              setMedicationTarget(id);
+              setMedSearch("");
+            }}
           />
 
           {/* Undo + Reset */}
@@ -441,7 +394,10 @@ export default function Home() {
               variant="outline"
               size="icon"
               className="rounded-full shadow-sm bg-white"
-              onClick={() => { pushHistory(zones); setZones(new Map()); }}
+              onClick={() => {
+                pushHistory(zones);
+                setZones(new Map());
+              }}
               title="Reset"
             >
               <RotateCcw className="w-4 h-4 text-muted-foreground" />
@@ -449,29 +405,24 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Severity note */}
         {zones.size > 0 && (
           <p className="text-xs text-center text-muted-foreground">
-            Tap a zone repeatedly to increase severity (1–10). Tapping again past 10 cycles back to 1.
+            {zones.size} area{zones.size !== 1 ? "s" : ""} marked · tap again to increase severity
           </p>
         )}
 
+        {/* Finish button */}
         <div className="mt-auto pt-2">
           <Button
-            className="w-full h-14 rounded-2xl text-lg shadow-md font-semibold"
-            disabled={zones.size === 0 || diagnoseMutation.isPending}
-            onClick={handleDiagnose}
+            className="w-full h-14 rounded-2xl text-base shadow-md font-semibold flex items-center gap-2"
+            disabled={zones.size === 0}
+            onClick={handleFinish}
           >
-            {diagnoseMutation.isPending ? (
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 animate-pulse" /> Analyzing...
-              </span>
-            ) : (
-              "Get AI Assessment"
-            )}
+            <CheckCircle2 className="w-5 h-5" />
+            Finish Today's Check-in
           </Button>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            Best used alongside professional medical advice
+            Saves your notes to bring to a doctor visit
           </p>
         </div>
       </div>
@@ -479,7 +430,12 @@ export default function Home() {
       {/* Medication Dialog */}
       <Dialog
         open={medicationTarget !== null}
-        onOpenChange={(open) => { if (!open) { setMedicationTarget(null); setMedSearch(""); } }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMedicationTarget(null);
+            setMedSearch("");
+          }
+        }}
       >
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
@@ -488,7 +444,7 @@ export default function Home() {
             </DialogTitle>
             {medicationZoneData && (
               <p className="text-sm text-muted-foreground">
-                {medicationZoneData.condition} &mdash; Severity {Math.round(medicationZoneData.severity)}/10
+                {medicationZoneData.condition} — Severity {Math.round(medicationZoneData.severity)}/10
                 {conditionGroup && (
                   <span className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded-full">{conditionGroup}</span>
                 )}
@@ -508,7 +464,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
               {filteredMeds.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">No medications found</p>
               )}
@@ -533,12 +489,16 @@ export default function Home() {
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">{med.brand}</span>
+                            <div>
+                              <span className="text-sm font-medium">{med.brand}</span>
+                              <span className="block text-xs text-muted-foreground">{med.generic}</span>
+                            </div>
                             {isActive && (
-                              <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                              <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full shrink-0">
+                                Active
+                              </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">{med.generic}</span>
                         </button>
                       );
                     })}
@@ -549,7 +509,7 @@ export default function Home() {
               {rxMeds.length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 mb-1.5 px-1">
-                    Prescription (Doctor Required)
+                    Prescription (Rx)
                   </p>
                   <div className="space-y-1">
                     {rxMeds.map((med) => {
@@ -566,12 +526,16 @@ export default function Home() {
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">{med.brand}</span>
+                            <div>
+                              <span className="text-sm font-medium">{med.brand}</span>
+                              <span className="block text-xs text-muted-foreground">{med.generic}</span>
+                            </div>
                             {isActive && (
-                              <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                              <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0">
+                                Active
+                              </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">{med.generic}</span>
                         </button>
                       );
                     })}
@@ -581,15 +545,45 @@ export default function Home() {
             </div>
 
             {medicationZoneData?.medication && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground w-full text-xs"
+              <button
                 onClick={() => handleApplyMedication(undefined)}
+                className="w-full text-sm text-muted-foreground hover:text-foreground py-1.5 rounded-xl transition-colors"
               >
-                Remove current medication
-              </Button>
+                Remove medication
+              </button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Profile Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            {profile && (
+              <div className="bg-muted/40 rounded-xl p-4 space-y-1">
+                <p className="text-sm font-medium">Current profile</p>
+                <p className="text-muted-foreground text-sm">
+                  {USER_TYPE_LABELS[profile.userType]} · Ages {profile.ageRange}
+                </p>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setShowSettings(false);
+                clearProfile();
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border hover:bg-muted/30 transition-all text-sm font-medium"
+            >
+              Change age range or user type
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <p className="text-[11px] text-muted-foreground text-center">
+              SkinCheck does not replace professional medical advice.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
