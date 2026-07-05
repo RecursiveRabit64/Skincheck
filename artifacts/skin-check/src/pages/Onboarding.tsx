@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, Baby, GraduationCap, User, ChevronRight, ArrowLeft, Shield, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useProfile, type UserType, type AgeRange } from "@/context/ProfileContext";
+import { useProfile, type UserType, type AgeRange, type StoredProfile } from "@/context/ProfileContext";
+
+interface OnboardingProps {
+  skipWelcome?: boolean;
+  onCancel?: () => void;
+  onDone?: (profile: StoredProfile) => void;
+}
 
 type Step = 0 | 1 | 2;
 
@@ -54,11 +61,26 @@ const slideVariants = {
   exit: (dir: number) => ({ opacity: 0, x: dir * -32 }),
 };
 
-export default function Onboarding() {
-  const { setProfile } = useProfile();
-  const [step, setStep] = useState<Step>(0);
+const DEFAULT_NAME: Record<UserType, string> = {
+  child: "Child",
+  teen: "Teen",
+  parent: "Parent",
+};
+
+const NAME_PLACEHOLDER: Record<UserType, string> = {
+  child: "Child's name (optional)",
+  teen: "Teen's name (optional)",
+  parent: "Your name (optional)",
+};
+
+export default function Onboarding({ skipWelcome, onCancel, onDone }: OnboardingProps) {
+  const { addProfile } = useProfile();
+  const [step, setStep] = useState<Step>(skipWelcome ? 1 : 0);
   const [dir, setDir] = useState(1);
   const [userType, setUserType] = useState<UserType | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const nameRef = useRef(nameInput);
+  nameRef.current = nameInput;
 
   const go = (next: Step) => {
     setDir(next > step ? 1 : -1);
@@ -69,17 +91,14 @@ export default function Onboarding() {
 
   const handleSelectType = (type: UserType) => {
     setUserType(type);
-    const entry = USER_TYPES.find((t) => t.type === type)!;
-    if (entry.ages.length === 1) {
-      setProfile({ userType: type, ageRange: entry.ages[0].value });
-    } else {
-      go(2);
-    }
+    go(2);
   };
 
-  const handleSelectAge = (age: AgeRange) => {
+  const handleComplete = (ageRange: AgeRange) => {
     if (!userType) return;
-    setProfile({ userType, ageRange: age });
+    const name = nameRef.current.trim() || DEFAULT_NAME[userType];
+    const profile = addProfile({ name, userType, ageRange });
+    onDone?.(profile);
   };
 
   return (
@@ -122,10 +141,7 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <Button
-                className="w-full h-14 rounded-2xl text-base font-semibold shadow-md"
-                onClick={() => go(1)}
-              >
+              <Button className="w-full h-14 rounded-2xl text-base font-semibold shadow-md" onClick={() => go(1)}>
                 Get Started <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
 
@@ -147,14 +163,14 @@ export default function Onboarding() {
               className="flex flex-col gap-6"
             >
               <button
-                onClick={() => go(0)}
+                onClick={() => (skipWelcome ? onCancel?.() : go(0))}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
               >
-                <ArrowLeft className="w-4 h-4" /> Back
+                <ArrowLeft className="w-4 h-4" /> {skipWelcome ? "Cancel" : "Back"}
               </button>
 
               <div className="text-center">
-                <h2 className="text-2xl font-bold">Who's using SkinCheck?</h2>
+                <h2 className="text-2xl font-bold">Who's this profile for?</h2>
                 <p className="text-muted-foreground text-sm mt-1">
                   We'll tailor the experience to the right age group.
                 </p>
@@ -186,7 +202,7 @@ export default function Onboarding() {
 
           {step === 2 && selectedType && (
             <motion.div
-              key="age"
+              key="age-name"
               custom={dir}
               variants={slideVariants}
               initial="enter"
@@ -203,30 +219,43 @@ export default function Onboarding() {
               </button>
 
               <div className="text-center">
-                <h2 className="text-2xl font-bold">What's your age range?</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  This sets which conditions appear and how things are displayed. You can change it anytime.
-                </p>
+                <h2 className="text-2xl font-bold">Almost done!</h2>
+                <p className="text-muted-foreground text-sm mt-1">Give this profile a name and choose an age range.</p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                {selectedType.ages.map(({ label, value }) => (
-                  <button
-                    key={value}
-                    onClick={() => handleSelectAge(value)}
-                    className={cn(
-                      "flex items-center justify-between p-5 rounded-2xl border-2 text-left font-semibold text-lg transition-all hover:shadow-sm active:scale-[0.98]",
-                      selectedType.color
-                    )}
-                  >
-                    {label}
-                    <ChevronRight className="w-5 h-5 opacity-50" />
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-foreground">Profile name</label>
+                <Input
+                  placeholder={NAME_PLACEHOLDER[selectedType.type]}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="rounded-xl h-12 text-base"
+                  autoFocus
+                  maxLength={32}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-foreground">Age range</label>
+                <div className="flex flex-col gap-3">
+                  {selectedType.ages.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      onClick={() => handleComplete(value)}
+                      className={cn(
+                        "flex items-center justify-between p-5 rounded-2xl border-2 text-left font-semibold text-lg transition-all hover:shadow-sm active:scale-[0.98]",
+                        selectedType.color
+                      )}
+                    >
+                      {label}
+                      <ChevronRight className="w-5 h-5 opacity-50" />
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <p className="text-xs text-center text-muted-foreground">
-                You can update your age range anytime from the home screen.
+                You can update the name and age range anytime from settings.
               </p>
             </motion.div>
           )}

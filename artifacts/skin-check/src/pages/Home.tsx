@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useProfile, type AgeRange } from "@/context/ProfileContext";
-import { RotateCcw, Pill, Undo2, Search, ChevronDown, FlipHorizontal, CheckCircle2, Settings2, ChevronRight } from "lucide-react";
+import { useProfile, type AgeRange, type StoredProfile } from "@/context/ProfileContext";
+import { useCheckIn, type ZoneEntry } from "@/context/CheckInContext";
+import { RotateCcw, Pill, Undo2, Search, ChevronDown, FlipHorizontal, CheckCircle2, Settings2, Users, Baby, GraduationCap, User, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ParentDashboard from "@/pages/ParentDashboard";
+import Onboarding from "@/pages/Onboarding";
 
 // ── Condition Groups by Age ───────────────────────────────────────────────────
 
@@ -106,19 +109,40 @@ const zoneLabelMap: Record<string, string> = Object.fromEntries(
 
 type ZoneSnapshot = Map<string, ZoneData>;
 
+const PROFILE_COLORS = [
+  "bg-blue-100 text-blue-700",
+  "bg-purple-100 text-purple-700",
+  "bg-green-100 text-green-700",
+  "bg-orange-100 text-orange-700",
+  "bg-pink-100 text-pink-700",
+  "bg-teal-100 text-teal-700",
+];
+
+const USER_TYPE_ICON: Record<string, React.ElementType> = {
+  child: Baby,
+  teen: GraduationCap,
+  parent: User,
+};
+
 const USER_TYPE_LABELS: Record<string, string> = {
   child: "Child",
   teen: "Teen",
   parent: "Parent",
 };
 
+function profileColorClass(profiles: StoredProfile[], id: string): string {
+  const idx = profiles.findIndex((p) => p.id === id);
+  return PROFILE_COLORS[Math.max(0, idx) % PROFILE_COLORS.length];
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const { profile, clearProfile } = useProfile();
+  const { activeProfile, profiles, switchProfile, removeProfile } = useProfile();
+  const { saveReport } = useCheckIn();
   const { toast } = useToast();
 
-  const ageRange = profile?.ageRange ?? "13-17";
+  const ageRange = activeProfile?.ageRange ?? "13-17";
   const conditionGroups = CONDITION_GROUPS_BY_AGE[ageRange];
   const defaultCondition = conditionGroups[0].conditions[0];
 
@@ -130,6 +154,8 @@ export default function Home() {
   const [medicationTarget, setMedicationTarget] = useState<string | null>(null);
   const [medSearch, setMedSearch] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showAddProfile, setShowAddProfile] = useState(false);
   const history = useRef<ZoneSnapshot[]>([]);
 
   const pushHistory = (current: ZoneSnapshot) => {
@@ -179,6 +205,11 @@ export default function Home() {
   const handleFinish = () => {
     const count = zones.size;
     if (count === 0) return;
+    if (activeProfile) {
+      const entries = new Map<string, ZoneEntry>();
+      zones.forEach((v, k) => entries.set(k, v));
+      saveReport(activeProfile.id, entries);
+    }
     toast({
       title: "Check-in saved!",
       description: `${count} area${count !== 1 ? "s" : ""} recorded. Bring this to your doctor visit.`,
@@ -188,6 +219,14 @@ export default function Home() {
     setMode("mark");
   };
 
+  const handleSwitchProfile = (id: string) => {
+    switchProfile(id);
+    setZones(new Map());
+    history.current = [];
+    setMode("mark");
+    setShowSettings(false);
+  };
+
   const medicationZoneData = medicationTarget ? zones.get(medicationTarget) : null;
   const conditionGroup = medicationZoneData
     ? getConditionGroup(medicationZoneData.condition, conditionGroups)
@@ -195,19 +234,30 @@ export default function Home() {
 
   const filteredMeds = useMemo(() => {
     const base = MEDICATIONS.filter(
-      (m) =>
-        m.forGroups.includes("all") ||
-        (conditionGroup && m.forGroups.includes(conditionGroup))
+      (m) => m.forGroups.includes("all") || (conditionGroup && m.forGroups.includes(conditionGroup))
     );
     if (!medSearch.trim()) return base;
     const q = medSearch.toLowerCase();
-    return base.filter(
-      (m) => m.brand.toLowerCase().includes(q) || m.generic.toLowerCase().includes(q)
-    );
+    return base.filter((m) => m.brand.toLowerCase().includes(q) || m.generic.toLowerCase().includes(q));
   }, [conditionGroup, medSearch]);
 
   const otcMeds = filteredMeds.filter((m) => m.otc);
   const rxMeds = filteredMeds.filter((m) => !m.otc);
+
+  const isParent = activeProfile?.userType === "parent";
+
+  // If add-profile flow is open, show it full screen
+  if (showAddProfile) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background">
+        <Onboarding
+          skipWelcome
+          onCancel={() => setShowAddProfile(false)}
+          onDone={() => setShowAddProfile(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] w-full bg-background flex flex-col pt-4 pb-24 px-4">
@@ -215,19 +265,43 @@ export default function Home() {
 
         {/* Header */}
         <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Today's Check-in</h1>
-            <p className="text-muted-foreground text-xs mt-0.5">
-              {profile ? `${USER_TYPE_LABELS[profile.userType]} · ${profile.ageRange}` : "Tap zones to mark concerns"}
-            </p>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {activeProfile && (
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                profileColorClass(profiles, activeProfile.id)
+              )}>
+                {activeProfile.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-base font-bold tracking-tight text-foreground truncate leading-tight">
+                {activeProfile?.name ?? "Today's Check-in"}
+              </h1>
+              <p className="text-muted-foreground text-[11px] mt-0 leading-tight">
+                {activeProfile ? `${USER_TYPE_LABELS[activeProfile.userType]} · ${activeProfile.ageRange}` : "Tap zones to mark concerns"}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 rounded-full hover:bg-muted/50 text-muted-foreground transition-colors"
-            title="Settings"
-          >
-            <Settings2 className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {isParent && (
+              <button
+                onClick={() => setShowDashboard(true)}
+                className="p-2 rounded-full hover:bg-muted/50 text-muted-foreground transition-colors relative"
+                title="Family Monitor"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-full hover:bg-muted/50 text-muted-foreground transition-colors"
+              title="Profiles & Settings"
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
         {/* Mode Toggle */}
@@ -282,9 +356,7 @@ export default function Home() {
                           {groupHasSelected && (
                             <span className="text-xs opacity-70 font-normal">{currentCondition}</span>
                           )}
-                          <ChevronDown
-                            className={cn("w-4 h-4 transition-transform duration-200", isOpen && "rotate-180")}
-                          />
+                          <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isOpen && "rotate-180")} />
                         </div>
                       </button>
 
@@ -342,9 +414,7 @@ export default function Home() {
             onClick={() => setDollView("front")}
             className={cn(
               "flex-1 py-1 rounded-lg text-xs font-medium border transition-all",
-              dollView === "front"
-                ? "bg-white border-border shadow-sm text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              dollView === "front" ? "bg-white border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Front View
@@ -354,9 +424,7 @@ export default function Home() {
             onClick={() => setDollView("back")}
             className={cn(
               "flex-1 py-1 rounded-lg text-xs font-medium border transition-all",
-              dollView === "back"
-                ? "bg-white border-border shadow-sm text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              dollView === "back" ? "bg-white border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Back View
@@ -378,7 +446,6 @@ export default function Home() {
             }}
           />
 
-          {/* Undo + Reset */}
           <div className="absolute top-0 right-0 flex flex-col gap-2">
             <Button
               variant="outline"
@@ -394,10 +461,7 @@ export default function Home() {
               variant="outline"
               size="icon"
               className="rounded-full shadow-sm bg-white"
-              onClick={() => {
-                pushHistory(zones);
-                setZones(new Map());
-              }}
+              onClick={() => { pushHistory(zones); setZones(new Map()); }}
               title="Reset"
             >
               <RotateCcw className="w-4 h-4 text-muted-foreground" />
@@ -427,14 +491,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Medication Dialog */}
+      {/* ── Medication Dialog ── */}
       <Dialog
         open={medicationTarget !== null}
         onOpenChange={(open) => {
-          if (!open) {
-            setMedicationTarget(null);
-            setMedSearch("");
-          }
+          if (!open) { setMedicationTarget(null); setMedSearch(""); }
         }}
       >
         <DialogContent className="max-w-sm rounded-2xl">
@@ -471,9 +532,7 @@ export default function Home() {
 
               {otcMeds.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-green-700 mb-1.5 px-1">
-                    Over-the-Counter
-                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-green-700 mb-1.5 px-1">Over-the-Counter</p>
                   <div className="space-y-1">
                     {otcMeds.map((med) => {
                       const isActive = medicationZoneData?.medication === med.brand;
@@ -483,9 +542,7 @@ export default function Home() {
                           onClick={() => handleApplyMedication(isActive ? undefined : med.brand)}
                           className={cn(
                             "w-full text-left px-3 py-2 rounded-xl border transition-all",
-                            isActive
-                              ? "bg-green-50 border-green-300 text-green-800"
-                              : "bg-white border-border hover:bg-muted/30"
+                            isActive ? "bg-green-50 border-green-300 text-green-800" : "bg-white border-border hover:bg-muted/30"
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -494,9 +551,7 @@ export default function Home() {
                               <span className="block text-xs text-muted-foreground">{med.generic}</span>
                             </div>
                             {isActive && (
-                              <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full shrink-0">
-                                Active
-                              </span>
+                              <span className="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                             )}
                           </div>
                         </button>
@@ -508,9 +563,7 @@ export default function Home() {
 
               {rxMeds.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 mb-1.5 px-1">
-                    Prescription (Rx)
-                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 mb-1.5 px-1">Prescription (Rx)</p>
                   <div className="space-y-1">
                     {rxMeds.map((med) => {
                       const isActive = medicationZoneData?.medication === med.brand;
@@ -520,9 +573,7 @@ export default function Home() {
                           onClick={() => handleApplyMedication(isActive ? undefined : med.brand)}
                           className={cn(
                             "w-full text-left px-3 py-2 rounded-xl border transition-all",
-                            isActive
-                              ? "bg-orange-50 border-orange-300 text-orange-800"
-                              : "bg-white border-border hover:bg-muted/30"
+                            isActive ? "bg-orange-50 border-orange-300 text-orange-800" : "bg-white border-border hover:bg-muted/30"
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -531,9 +582,7 @@ export default function Home() {
                               <span className="block text-xs text-muted-foreground">{med.generic}</span>
                             </div>
                             {isActive && (
-                              <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0">
-                                Active
-                              </span>
+                              <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0">Active</span>
                             )}
                           </div>
                         </button>
@@ -543,50 +592,91 @@ export default function Home() {
                 </div>
               )}
             </div>
-
-            {medicationZoneData?.medication && (
-              <button
-                onClick={() => handleApplyMedication(undefined)}
-                className="w-full text-sm text-muted-foreground hover:text-foreground py-1.5 rounded-xl transition-colors"
-              >
-                Remove medication
-              </button>
-            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Settings Dialog */}
+      {/* ── Settings / Profile Switcher Dialog ── */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Profile Settings</DialogTitle>
+            <DialogTitle>Profiles</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-1">
-            {profile && (
-              <div className="bg-muted/40 rounded-xl p-4 space-y-1">
-                <p className="text-sm font-medium">Current profile</p>
-                <p className="text-muted-foreground text-sm">
-                  {USER_TYPE_LABELS[profile.userType]} · Ages {profile.ageRange}
-                </p>
-              </div>
-            )}
+
+          <div className="space-y-2 pt-1">
+            {profiles.map((p, i) => {
+              const Icon = USER_TYPE_ICON[p.userType] ?? User;
+              const isActive = p.id === activeProfile?.id;
+              const color = PROFILE_COLORS[i % PROFILE_COLORS.length];
+              return (
+                <div
+                  key={p.id}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-xl border transition-all",
+                    isActive ? "border-primary/40 bg-primary/5" : "border-border bg-white hover:bg-muted/20"
+                  )}
+                >
+                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0", color)}>
+                    {p.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-sm truncate">{p.name}</span>
+                      {isActive && (
+                        <span className="text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full shrink-0">Active</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                      <Icon className="w-3 h-3" />
+                      <span>{USER_TYPE_LABELS[p.userType]} · {p.ageRange}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isActive && (
+                      <button
+                        onClick={() => handleSwitchProfile(p.id)}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                      >
+                        Switch
+                      </button>
+                    )}
+                    {profiles.length > 1 && (
+                      <button
+                        onClick={() => {
+                          removeProfile(p.id);
+                          if (isActive) setShowSettings(false);
+                        }}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Remove profile"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
             <button
               onClick={() => {
                 setShowSettings(false);
-                clearProfile();
+                setShowAddProfile(true);
               }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border hover:bg-muted/30 transition-all text-sm font-medium"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground hover:bg-muted/20 hover:text-foreground transition-all"
             >
-              Change age range or user type
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <Plus className="w-4 h-4" />
+              Add Profile
             </button>
-            <p className="text-[11px] text-muted-foreground text-center">
-              SkinCheck does not replace professional medical advice.
-            </p>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Parent Dashboard (full screen slide-over) ── */}
+      <AnimatePresence>
+        {showDashboard && (
+          <ParentDashboard onClose={() => setShowDashboard(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
