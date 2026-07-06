@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BodyDoll, type SkinCondition, type ZoneData, type DollView, zonesDef, frontZonesDef, backZonesDef } from "@/components/BodyDoll";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import Onboarding from "@/pages/Onboarding";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Phase = "home" | "phase1" | "phase2" | "done";
+type Phase = "home" | "phase1" | "phase2" | "phase3" | "done";
 type ZoneSnapshot = Map<string, ZoneData>;
 
 // ── Condition Data ────────────────────────────────────────────────────────────
@@ -202,15 +202,36 @@ function profileColor(profiles: StoredProfile[], id: string): string {
 
 // ── Progress Dots ─────────────────────────────────────────────────────────────
 
-function ProgressDots({ step }: { step: 1 | 2 }) {
+const PROGRESS_STEPS = ["Body", "Skin", "Review"] as const;
+
+function ProgressDots({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      {[1, 2].map((n) => (
-        <motion.div
-          key={n}
-          className={cn("h-2 rounded-full transition-all duration-300", n === step ? "w-6 bg-primary" : "w-2 bg-muted-foreground/20")}
-        />
-      ))}
+    <div className="flex items-center">
+      {PROGRESS_STEPS.map((label, i) => {
+        const n = i + 1;
+        const done = step > n;
+        const current = step === n;
+        return (
+          <Fragment key={n}>
+            <div className="flex flex-col items-center gap-0.5">
+              <div className={cn(
+                "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-all",
+                done    ? "bg-primary border-primary text-white" :
+                current ? "bg-primary/10 border-primary text-primary" :
+                          "bg-muted border-muted/80 text-muted-foreground/40"
+              )}>
+                {done ? "✓" : n}
+              </div>
+              <span className={cn("text-[8px] font-medium leading-none", current ? "text-primary" : "text-muted-foreground/40")}>
+                {label}
+              </span>
+            </div>
+            {i < 2 && (
+              <div className={cn("h-[2px] w-5 mb-3 mx-0.5 rounded-full transition-all", step > n ? "bg-primary" : "bg-muted")} />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -331,6 +352,31 @@ function HomeLanding({
           {text}, {profile?.name ?? "there"}! {emoji}
         </p>
       </motion.div>
+
+      {/* ── Parent monitor bar ── */}
+      {isParent && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.08 }}
+          className="mx-5 mt-3"
+        >
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            onClick={onOpenDashboard}
+            className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/8 to-primary/4 px-4 py-3 flex items-center gap-3 cursor-pointer shadow-sm active:opacity-80 transition-all"
+          >
+            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground">Family Monitor</p>
+              <p className="text-xs text-muted-foreground">View children's check-in reports</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          </motion.div>
+        </motion.div>
+      )}
 
       {/* ── Today's check-in status card ── */}
       <motion.div
@@ -953,6 +999,122 @@ function ProfileSettings({
   );
 }
 
+// ── Phase 3 — Review ─────────────────────────────────────────────────────────
+
+function formatZoneList(labels: string[]): string {
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+  return `${labels.slice(0, 2).join(", ")} +${labels.length - 2} more`;
+}
+
+function severityMeta(sev: number): { label: string; dot: string; text: string } {
+  if (sev <= 4) return { label: "Mild",     dot: "bg-yellow-400", text: "text-yellow-700" };
+  if (sev <= 7) return { label: "Moderate", dot: "bg-orange-400", text: "text-orange-600" };
+  return              { label: "Severe",   dot: "bg-red-500",    text: "text-red-600"    };
+}
+
+function scratchSummaryText(score: number | null): string {
+  if (score === null) return "Itchiness not recorded.";
+  if (score <= 2) return "Little to no scratching today.";
+  if (score <= 4) return "Some minor scratching today.";
+  if (score <= 6) return "Moderate scratching today.";
+  if (score <= 8) return "Quite a bit of scratching today.";
+  return "Significant scratching today.";
+}
+
+function Phase3({
+  zones,
+  scratchScore,
+  onSubmit,
+  onBack,
+}: {
+  zones: ZoneSnapshot;
+  scratchScore: number | null;
+  onSubmit: () => void;
+  onBack: () => void;
+}) {
+  const conditionGroups = useMemo(() => {
+    const groups = new Map<string, { zoneLabels: string[]; maxSeverity: number }>();
+    zones.forEach((data, zoneId) => {
+      if (!groups.has(data.condition)) groups.set(data.condition, { zoneLabels: [], maxSeverity: 0 });
+      const g = groups.get(data.condition)!;
+      g.zoneLabels.push(zoneLabelMap[zoneId] ?? zoneId);
+      g.maxSeverity = Math.max(g.maxSeverity, data.severity);
+    });
+    return Array.from(groups.entries()).map(([condition, g]) => ({ condition, ...g }));
+  }, [zones]);
+
+  const overallMaxSev = conditionGroups.reduce((m, g) => Math.max(m, g.maxSeverity), 0);
+  const overallStatus =
+    conditionGroups.length === 0 ? { emoji: "✅", label: "All clear!", sub: "No skin issues recorded today.", color: "bg-green-50 border-green-200" } :
+    overallMaxSev <= 4           ? { emoji: "🟡", label: "Mostly clear",            sub: "Only mild areas noted.",             color: "bg-yellow-50 border-yellow-200" } :
+    overallMaxSev <= 7           ? { emoji: "🟠", label: "A few areas to watch",    sub: "Some moderate areas noted.",         color: "bg-orange-50 border-orange-200" } :
+                                   { emoji: "🔴", label: "Needs attention",          sub: "Severe areas noted — see a doctor.", color: "bg-red-50 border-red-200" };
+
+  return (
+    <div className="min-h-[100dvh] flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-5 pb-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </motion.button>
+        <ProgressDots step={3} />
+        <div className="w-16" />
+      </div>
+
+      <div className="px-4 mb-4">
+        <h2 className="text-xl font-bold">Review Your Check-In</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Here's a summary of today</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
+        {/* Overall status */}
+        <div className={cn("rounded-2xl border px-4 py-3 flex items-center gap-3", overallStatus.color)}>
+          <span className="text-2xl leading-none">{overallStatus.emoji}</span>
+          <div>
+            <p className="text-sm font-bold text-foreground">{overallStatus.label}</p>
+            <p className="text-xs text-muted-foreground">{overallStatus.sub}</p>
+          </div>
+        </div>
+
+        {/* Condition breakdown */}
+        {conditionGroups.length > 0 && (
+          <div className="rounded-2xl border border-border bg-white overflow-hidden divide-y divide-border">
+            {conditionGroups.map(({ condition, zoneLabels, maxSeverity }) => {
+              const { label: sevLabel, dot, text: textColor } = severityMeta(maxSeverity);
+              return (
+                <div key={condition} className="flex items-start gap-3 px-4 py-3">
+                  <div className={cn("w-2.5 h-2.5 rounded-full mt-1 shrink-0", dot)} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{condition}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{formatZoneList(zoneLabels)}</p>
+                  </div>
+                  <span className={cn("text-xs font-semibold shrink-0 mt-0.5", textColor)}>{sevLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Scratch summary */}
+        <div className="rounded-2xl border border-border bg-white px-4 py-3 flex items-center gap-3">
+          <span className="text-xl leading-none">🤚</span>
+          <p className="text-sm text-foreground">{scratchSummaryText(scratchScore)}</p>
+        </div>
+      </div>
+
+      {/* Submit button */}
+      <div className="px-4 pb-8 pt-2">
+        <motion.div whileTap={{ scale: 0.97 }}>
+          <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-md" onClick={onSubmit}>
+            Submit Check-In ✓
+          </Button>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 // ── Done Screen ───────────────────────────────────────────────────────────────
 
 function DoneScreen({ isEditing, onContinue }: { isEditing: boolean; onContinue: () => void }) {
@@ -1110,8 +1272,19 @@ export default function Home() {
               ageRange={activeProfile.ageRange}
               scratchScore={scratchScore}
               setScratchScore={setScratchScore}
-              onFinish={handleFinish}
+              onFinish={() => goTo("phase3", 1)}
               onBack={() => goTo("phase1", -1)}
+            />
+          </motion.div>
+        )}
+
+        {phase === "phase3" && (
+          <motion.div key="phase3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25, ease: "easeInOut" }}>
+            <Phase3
+              zones={zones}
+              scratchScore={scratchScore}
+              onSubmit={handleFinish}
+              onBack={() => goTo("phase2", -1)}
             />
           </motion.div>
         )}

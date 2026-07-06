@@ -118,9 +118,9 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
             >
               <div className="flex flex-col items-center gap-3">
                 <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
-                  <HeartPulse className="w-10 h-10 text-primary" />
+                  <span className="text-5xl leading-none">🩹</span>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight">SkinCheck</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Patch</h1>
                 <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
                   Track skin concerns for the whole family. Tap body zones, record what you notice, and bring it to your doctor.
                 </p>
