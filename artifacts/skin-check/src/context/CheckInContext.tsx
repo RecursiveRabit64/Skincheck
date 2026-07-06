@@ -24,6 +24,7 @@ interface CheckInContextValue {
   saveReport: (profileId: string, zones: Map<string, ZoneEntry>, scratchScore?: number) => CheckInReport;
   getReportsForProfile: (profileId: string) => CheckInReport[];
   deleteReport: (id: string) => void;
+  deleteReportsForProfile: (profileId: string) => void;
 }
 
 const STORAGE_KEY = "skincheck_reports_v1";
@@ -55,18 +56,19 @@ const CheckInContext = createContext<CheckInContextValue | null>(null);
 export function CheckInProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<CheckInStore>(loadStore);
 
-  const persist = useCallback((next: CheckInStore) => {
-    saveStore(next);
-    setStore(next);
+  const persist = useCallback((updater: (prev: CheckInStore) => CheckInStore) => {
+    setStore((prev) => {
+      const next = updater(prev);
+      saveStore(next);
+      return next;
+    });
   }, []);
 
   const saveReport = useCallback(
     (profileId: string, zones: Map<string, ZoneEntry>, scratchScore?: number): CheckInReport => {
       const today = todayStr();
       const zonesRecord: Record<string, ZoneEntry> = {};
-      zones.forEach((v, k) => {
-        zonesRecord[k] = v;
-      });
+      zones.forEach((v, k) => { zonesRecord[k] = v; });
 
       const report: CheckInReport = {
         id: generateId(),
@@ -77,18 +79,16 @@ export function CheckInProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      setStore((prev) => {
+      persist((prev) => {
         const withoutToday = prev.reports.filter(
           (r) => !(r.profileId === profileId && r.date === today)
         );
-        const next = { reports: [...withoutToday, report] };
-        saveStore(next);
-        return next;
+        return { reports: [...withoutToday, report] };
       });
 
       return report;
     },
-    []
+    [persist]
   );
 
   const getReportsForProfile = useCallback(
@@ -100,15 +100,15 @@ export function CheckInProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteReport = useCallback((id: string) => {
-    setStore((prev) => {
-      const next = { reports: prev.reports.filter((r) => r.id !== id) };
-      saveStore(next);
-      return next;
-    });
-  }, []);
+    persist((prev) => ({ reports: prev.reports.filter((r) => r.id !== id) }));
+  }, [persist]);
+
+  const deleteReportsForProfile = useCallback((profileId: string) => {
+    persist((prev) => ({ reports: prev.reports.filter((r) => r.profileId !== profileId) }));
+  }, [persist]);
 
   return (
-    <CheckInContext.Provider value={{ reports: store.reports, saveReport, getReportsForProfile, deleteReport }}>
+    <CheckInContext.Provider value={{ reports: store.reports, saveReport, getReportsForProfile, deleteReport, deleteReportsForProfile }}>
       {children}
     </CheckInContext.Provider>
   );

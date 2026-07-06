@@ -1,0 +1,72 @@
+Settings
+-Clicking the top-left button opens the account's Settings page.
+-Keep the page clean and minimalist, matching the rest of the app.
+-Use large cards or list items with icons instead of small buttons.
+-Group related options into clear sections.
+
+Profile
+Display the currently selected profile at the top. You can only access a profile's settings by clicking on the settings button while in that specific profile.
+Show whether it is a Child or Caregiver profile.
+Show the selected age range at top.
+Add an Edit Profile button.
+Allow changing:
+Name
+Age range
+Editing one field should never reset another field.
+Disable saving if the name is empty.
+
+Families
+Add a Families section.
+Families should organize caregiver and child profiles together.
+A family consists of:
+One or more Caregiver profiles.
+One or more Child profiles.
+Only children within the same family should appear in that family's Caregiver Dashboard.
+Allow users to:
+View all families stored on the device.
+Create a new family.
+Rename a family.
+Switch between families.
+Add an existing profile to a family.
+Remove a profile from a family.
+Delete an empty family.
+When creating a new family:
+Ask for a family name.
+Allow the user to add caregivers and children afterward.
+
+Profile Management
+Add a Manage Pwrofiles section.
+Allow users to:
+Create a new profile.
+Rename profiles.
+Change age range.
+Change whether the profile is Child or Caregiver (only if it will not break family relationships).
+Deleting profiles:
+Never delete immediately.
+Show a confirmation dialog:
+"Delete this profile?"
+"All skin history and reports for this profile will be removed."
+Provide:
+Cancel
+Delete
+After deletion, a small widget at the bottom right side will let the user know they just deleted the account. A little line at the bottom of the widget will be a slider that represents the time you have until the widget goes away. On the widget, there will be an option to undo profile deletion.
+
+Privacy
+Create a simple Privacy page.
+Display:
+All information is stored locally on this device.
+No account is required.
+Information is only shared if exported by the user.
+This page is informational only for Phase 1.
+
+About
+Display:
+App name.
+Current version.
+Short description of the project.
+Credits section.
+Example:
+Patch
+Version 1.0 (Phase 1 MVP.)
+Created as a capstone project to help children and families monitor skin health over time.
+

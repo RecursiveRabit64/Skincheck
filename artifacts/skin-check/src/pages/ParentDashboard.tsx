@@ -263,11 +263,13 @@ function ChildCard({ profile, reports, colorClass, onSwitchToCheckin }: {
 // ── Parent Dashboard ──────────────────────────────────────────────────────────
 
 export default function ParentDashboard({ onClose }: ParentDashboardProps) {
-  const { profiles } = useProfile();
+  const { profiles, activeProfile } = useProfile();
   const { getReportsForProfile } = useCheckIn();
   const [showAddProfile, setShowAddProfile] = useState(false);
 
-  const childProfiles = profiles.filter((p) => p.userType !== "parent");
+  const childProfiles = activeProfile?.familyId
+    ? profiles.filter((p) => p.userType !== "parent" && p.familyId === activeProfile.familyId)
+    : profiles.filter((p) => p.userType !== "parent" && !p.familyId);
 
   if (showAddProfile) {
     return (

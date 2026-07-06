@@ -2,7 +2,6 @@ import { useState, useRef, useMemo, useCallback, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BodyDoll, type SkinCondition, type ZoneData, type DollView, zonesDef, frontZonesDef, backZonesDef } from "@/components/BodyDoll";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useProfile, type AgeRange, type StoredProfile } from "@/context/ProfileContext";
 import { useCheckIn, type ZoneEntry } from "@/context/CheckInContext";
@@ -10,6 +9,7 @@ import { RotateCcw, Undo2, Search, FlipHorizontal, Users, Settings2, X, ChevronR
 import { cn } from "@/lib/utils";
 import ParentDashboard from "@/pages/ParentDashboard";
 import Onboarding from "@/pages/Onboarding";
+import Settings from "@/pages/Settings";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -925,80 +925,6 @@ function Phase2({
 
 // ── Profile Switcher ──────────────────────────────────────────────────────────
 
-function ProfileSettings({
-  profiles,
-  activeId,
-  onSwitch,
-  onRemove,
-  onAdd,
-  onClose,
-}: {
-  profiles: StoredProfile[];
-  activeId: string | null;
-  onSwitch: (id: string) => void;
-  onRemove: (id: string) => void;
-  onAdd: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <DialogContent className="max-w-sm rounded-2xl">
-      <DialogHeader>
-        <DialogTitle>Profiles</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-2 pt-1">
-        {profiles.map((p, i) => {
-          const Icon = USER_TYPE_ICON[p.userType] ?? User;
-          const isActive = p.id === activeId;
-          const color = PROFILE_COLORS[i % PROFILE_COLORS.length];
-          return (
-            <motion.div
-              key={p.id}
-              whileTap={!isActive ? { scale: 0.98 } : {}}
-              onClick={() => { if (!isActive) onSwitch(p.id); }}
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-xl border transition-all",
-                isActive
-                  ? "border-primary bg-primary/10 cursor-default"
-                  : "border-border bg-white hover:bg-muted/20 hover:border-primary/30 cursor-pointer"
-              )}
-            >
-              <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0", color)}>
-                {p.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-sm truncate">{p.name}</span>
-                  {isActive && <span className="text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full shrink-0">Active</span>}
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                  <Icon className="w-3 h-3" />
-                  <span>{USER_TYPE_LABELS[p.userType]} · {p.ageRange}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {profiles.length > 1 && (
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => { e.stopPropagation(); onRemove(p.id); }}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </motion.button>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-        <motion.button whileTap={{ scale: 0.97 }} onClick={onAdd}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground hover:bg-muted/20"
-        >
-          <Plus className="w-4 h-4" /> Add Profile
-        </motion.button>
-      </div>
-    </DialogContent>
-  );
-}
-
 // ── Phase 3 — Review ─────────────────────────────────────────────────────────
 
 function formatZoneList(labels: string[]): string {
@@ -1303,17 +1229,15 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Profile settings dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <ProfileSettings
-          profiles={profiles}
-          activeId={activeProfile?.id ?? null}
-          onSwitch={handleSwitchProfile}
-          onRemove={(id) => { removeProfile(id); if (id === activeProfile?.id) setShowSettings(false); }}
-          onAdd={() => { setShowSettings(false); setShowAddProfile(true); }}
-          onClose={() => setShowSettings(false)}
-        />
-      </Dialog>
+      {/* Settings slide-over */}
+      <AnimatePresence>
+        {showSettings && (
+          <Settings
+            onClose={() => setShowSettings(false)}
+            onSwitchProfile={(id) => { handleSwitchProfile(id); }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Parent dashboard slide-over */}
       <AnimatePresence>
