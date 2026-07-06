@@ -4,7 +4,6 @@ import { BodyDoll, type SkinCondition, type ZoneData, type DollView, zonesDef, f
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 import { useProfile, type AgeRange, type StoredProfile } from "@/context/ProfileContext";
 import { useCheckIn, type ZoneEntry } from "@/context/CheckInContext";
 import { RotateCcw, Undo2, Search, FlipHorizontal, Users, Settings2, X, ChevronRight, ArrowLeft, Baby, GraduationCap, User, Plus, Trash2 } from "lucide-react";
@@ -14,7 +13,7 @@ import Onboarding from "@/pages/Onboarding";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Phase = "home" | "phase1" | "phase2";
+type Phase = "home" | "phase1" | "phase2" | "done";
 type ZoneSnapshot = Map<string, ZoneData>;
 
 // ── Condition Data ────────────────────────────────────────────────────────────
@@ -108,6 +107,18 @@ const CHIP_ON: Record<ColorKey, string> = {
 function conditionChipClass(condition: SkinCondition, active: boolean): string {
   const key = CONDITION_COLOR[condition] ?? "violet";
   return active ? CHIP_ON[key] : CHIP_OFF[key];
+}
+
+const CHIP_DOT: Record<ColorKey, string> = {
+  red: "bg-red-400", orange: "bg-orange-400", amber: "bg-amber-400",
+  yellow: "bg-yellow-400", lime: "bg-lime-400", teal: "bg-teal-500",
+  violet: "bg-violet-400", blue: "bg-blue-400", rose: "bg-rose-400",
+  stone: "bg-stone-400",
+};
+function conditionDotClass(condition: SkinCondition, active: boolean): string {
+  if (active) return "bg-white/90";
+  const key = CONDITION_COLOR[condition] ?? "violet";
+  return CHIP_DOT[key];
 }
 
 // ── Severity ─────────────────────────────────────────────────────────────────
@@ -255,6 +266,7 @@ function HomeLanding({
   completedToday,
   streak,
   onStart,
+  onViewToday,
   onOpenDashboard,
   onOpenSettings,
 }: {
@@ -264,6 +276,7 @@ function HomeLanding({
   completedToday: boolean;
   streak: number;
   onStart: () => void;
+  onViewToday: () => void;
   onOpenDashboard: () => void;
   onOpenSettings: () => void;
 }) {
@@ -340,12 +353,16 @@ function HomeLanding({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's skin check</p>
-            <p className={cn("text-base font-bold mt-0.5", completedToday ? "text-green-700" : "text-foreground")}>
-              {completedToday ? "Completed!" : "Not completed yet"}
-            </p>
+            {completedToday ? (
+              <p className="text-base font-bold mt-0.5 text-green-700">Completed!</p>
+            ) : lastCheckinDate ? (
+              <p className="text-base font-bold mt-0.5 text-foreground">Not completed yet</p>
+            ) : (
+              <p className="text-sm font-medium mt-0.5 text-muted-foreground leading-snug">No history yet — start your first check-in!</p>
+            )}
           </div>
           <div className="text-right shrink-0">
-            {!completedToday && (
+            {!completedToday && lastCheckinDate && (
               <>
                 <p className="text-[10px] text-muted-foreground">Est. time</p>
                 <p className="text-sm font-semibold text-foreground">~2 min</p>
@@ -355,32 +372,43 @@ function HomeLanding({
         </div>
       </motion.div>
 
-      {/* ── Spacer + Start button ── */}
+      {/* ── Spacer + buttons ── */}
       <div className="flex-1" />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.14 }}
-        className="px-5 space-y-3"
+        className="px-5 space-y-2.5"
       >
-        <motion.div whileTap={{ scale: 0.97 }}>
-          <Button
-            className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg"
-            onClick={onStart}
-          >
-            {completedToday ? "Update Today's Check-In" : "Start Check-In"}
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </Button>
-        </motion.div>
+        {completedToday ? (
+          <motion.div whileTap={{ scale: 0.97 }}>
+            <Button
+              className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg"
+              onClick={onViewToday}
+            >
+              View Today's Check-In
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div whileTap={{ scale: 0.97 }}>
+            <Button
+              className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg"
+              onClick={onStart}
+            >
+              {lastCheckinDate ? "Start Check-In" : "Start First Check-In"}
+              <ChevronRight className="w-5 h-5 ml-1" />
+            </Button>
+          </motion.div>
+        )}
 
-        {/* Last check-in */}
         {lastCheckinLabel && !completedToday && (
           <p className="text-center text-sm text-muted-foreground">
             Last check-in: <span className="font-semibold text-foreground">{lastCheckinLabel}</span>
           </p>
         )}
-        {!lastCheckinDate && (
+        {!lastCheckinDate && !completedToday && (
           <p className="text-center text-xs text-muted-foreground">Takes about 2 minutes</p>
         )}
       </motion.div>
@@ -583,21 +611,27 @@ function Phase1({
         <p className="text-xs text-muted-foreground mt-0.5">Tap the body to mark the area</p>
       </div>
 
-      {/* Condition chips — horizontal scroll */}
-      <div className="px-4 mb-3 flex gap-2 overflow-x-auto scrollbar-none pb-1">
-        {allConditions.map((cond) => (
-          <motion.button
-            key={cond}
-            whileTap={{ scale: 0.93 }}
-            onClick={() => setCurrentCondition(cond)}
-            className={cn(
-              "shrink-0 h-9 px-3.5 rounded-full border text-sm font-medium transition-all",
-              conditionChipClass(cond, currentCondition === cond)
-            )}
-          >
-            {cond}
-          </motion.button>
-        ))}
+      {/* Condition cards — ordered 2-column grid */}
+      <div className="px-4 mb-2">
+        <div className="grid grid-cols-2 gap-1.5 max-h-[148px] overflow-y-auto scrollbar-none">
+          {allConditions.map((cond) => {
+            const isActive = currentCondition === cond;
+            return (
+              <motion.button
+                key={cond}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentCondition(cond)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
+                  conditionChipClass(cond, isActive)
+                )}
+              >
+                <div className={cn("w-2 h-2 rounded-full shrink-0", conditionDotClass(cond, isActive))} />
+                <span className="truncate">{cond}</span>
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Front/Back toggle */}
@@ -625,8 +659,6 @@ function Phase1({
           mode="mark"
           view={dollView}
           onZoneInteract={handleZoneTap}
-          onZoneInteractHold={() => {}}
-          onZoneMedicateClick={() => {}}
         />
 
         {/* Undo / Reset */}
@@ -718,10 +750,13 @@ function Phase2({
 
       <div className="px-4 mb-6">
         <h2 className="text-xl font-bold">
-          {isYoung ? "Did you scratch today?" : "How much did you scratch today?"}
+          {new Date().getHours() < 17
+            ? "How has your skin felt so far today?"
+            : "How did your skin feel today?"
+          }
         </h2>
         <p className="text-xs text-muted-foreground mt-1">
-          {isYoung ? "Let us know how your skin felt" : "Tell us how itchy your skin was"}
+          {isYoung ? "Let us know how itchy it's been" : "Tell us how itchy your skin was"}
         </p>
       </div>
 
@@ -870,7 +905,17 @@ function ProfileSettings({
           const isActive = p.id === activeId;
           const color = PROFILE_COLORS[i % PROFILE_COLORS.length];
           return (
-            <div key={p.id} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all", isActive ? "border-primary/40 bg-primary/5" : "border-border bg-white hover:bg-muted/20")}>
+            <motion.div
+              key={p.id}
+              whileTap={!isActive ? { scale: 0.98 } : {}}
+              onClick={() => { if (!isActive) onSwitch(p.id); }}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-xl border transition-all",
+                isActive
+                  ? "border-primary bg-primary/10 cursor-default"
+                  : "border-border bg-white hover:bg-muted/20 hover:border-primary/30 cursor-pointer"
+              )}
+            >
               <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0", color)}>
                 {p.name.slice(0, 2).toUpperCase()}
               </div>
@@ -885,22 +930,17 @@ function ProfileSettings({
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {!isActive && (
-                  <motion.button whileTap={{ scale: 0.93 }} onClick={() => onSwitch(p.id)}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground font-medium"
-                  >
-                    Switch
-                  </motion.button>
-                )}
                 {profiles.length > 1 && (
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => onRemove(p.id)}
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.stopPropagation(); onRemove(p.id); }}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </motion.button>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
         <motion.button whileTap={{ scale: 0.97 }} onClick={onAdd}
@@ -910,6 +950,43 @@ function ProfileSettings({
         </motion.button>
       </div>
     </DialogContent>
+  );
+}
+
+// ── Done Screen ───────────────────────────────────────────────────────────────
+
+function DoneScreen({ isEditing, onContinue }: { isEditing: boolean; onContinue: () => void }) {
+  return (
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center px-8 text-center bg-gradient-to-b from-green-50 via-background to-background">
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", damping: 12, stiffness: 200 }}
+      >
+        <span className="text-8xl leading-none">🎉</span>
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.35 }}
+        className="mt-6 flex flex-col items-center"
+      >
+        <h1 className="text-2xl font-bold text-foreground">Skin Check Complete!</h1>
+        <p className="text-sm text-muted-foreground mt-3 max-w-[280px] leading-relaxed">
+          {isEditing
+            ? "Your check-in has been updated. Great job staying on top of your skin health!"
+            : "Great job! We'll use today's information to help you and your family better understand your skin over time."}
+        </p>
+        <motion.div whileTap={{ scale: 0.97 }} className="mt-10 w-full max-w-[280px]">
+          <Button
+            className="w-full h-14 rounded-2xl text-base font-bold shadow-md"
+            onClick={onContinue}
+          >
+            Continue
+          </Button>
+        </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -926,12 +1003,12 @@ const slideVariants = {
 export default function Home() {
   const { activeProfile, profiles, switchProfile, removeProfile } = useProfile();
   const { saveReport, getReportsForProfile } = useCheckIn();
-  const { toast } = useToast();
 
   const [phase, setPhase] = useState<Phase>("home");
   const [dir, setDir] = useState(1);
   const [zones, setZones] = useState<ZoneSnapshot>(new Map());
   const [scratchScore, setScratchScore] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showAddProfile, setShowAddProfile] = useState(false);
@@ -941,15 +1018,43 @@ export default function Home() {
     setPhase(next);
   }, []);
 
+  // Derived stats for current profile
+  const { lastCheckinDate, completedToday, streak, todayReport } = useMemo(() => {
+    if (!activeProfile) return { lastCheckinDate: null, completedToday: false, streak: 0, todayReport: null };
+    const reports = getReportsForProfile(activeProfile.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const last = reports[0]?.date ?? null;
+    const done = last === today;
+    const dates = reports.map((r) => r.date);
+    const todayRpt = done ? reports[0] : null;
+    return { lastCheckinDate: last, completedToday: done, streak: calcStreak(dates), todayReport: todayRpt };
+  }, [activeProfile, getReportsForProfile]);
+
+  const handleStart = () => {
+    setZones(new Map());
+    setScratchScore(null);
+    setIsEditing(false);
+    goTo("phase1", 1);
+  };
+
+  const handleViewToday = () => {
+    if (!todayReport) return;
+    const loadedZones = new Map<string, ZoneData>();
+    Object.entries(todayReport.zones).forEach(([k, v]) => {
+      loadedZones.set(k, { condition: v.condition as SkinCondition, severity: v.severity, medication: v.medication });
+    });
+    setZones(loadedZones);
+    setScratchScore(todayReport.scratchScore ?? null);
+    setIsEditing(true);
+    goTo("phase1", 1);
+  };
+
   const handleFinish = () => {
     if (!activeProfile || zones.size === 0) return;
     const entries = new Map<string, ZoneEntry>();
     zones.forEach((v, k) => entries.set(k, { condition: v.condition, severity: v.severity, medication: v.medication }));
     saveReport(activeProfile.id, entries, scratchScore ?? undefined);
-    toast({ title: "Check-in complete! 🎉", description: `${zones.size} area${zones.size !== 1 ? "s" : ""} logged. Great job!` });
-    setZones(new Map());
-    setScratchScore(null);
-    goTo("home", -1);
+    goTo("done", 1);
   };
 
   const handleSwitchProfile = (id: string) => {
@@ -959,17 +1064,6 @@ export default function Home() {
     goTo("home");
     setShowSettings(false);
   };
-
-  // Derived stats for current profile
-  const { lastCheckinDate, completedToday, streak } = useMemo(() => {
-    if (!activeProfile) return { lastCheckinDate: null, completedToday: false, streak: 0 };
-    const reports = getReportsForProfile(activeProfile.id);
-    const today = new Date().toISOString().slice(0, 10);
-    const last = reports[0]?.date ?? null;
-    const done = last === today;
-    const dates = reports.map((r) => r.date);
-    return { lastCheckinDate: last, completedToday: done, streak: calcStreak(dates) };
-  }, [activeProfile, getReportsForProfile]);
 
   if (showAddProfile) {
     return (
@@ -990,7 +1084,8 @@ export default function Home() {
               lastCheckinDate={lastCheckinDate}
               completedToday={completedToday}
               streak={streak}
-              onStart={() => goTo("phase1", 1)}
+              onStart={handleStart}
+              onViewToday={handleViewToday}
               onOpenDashboard={() => setShowDashboard(true)}
               onOpenSettings={() => setShowSettings(true)}
             />
@@ -1017,6 +1112,19 @@ export default function Home() {
               setScratchScore={setScratchScore}
               onFinish={handleFinish}
               onBack={() => goTo("phase1", -1)}
+            />
+          </motion.div>
+        )}
+
+        {phase === "done" && (
+          <motion.div key="done" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25, ease: "easeInOut" }}>
+            <DoneScreen
+              isEditing={isEditing}
+              onContinue={() => {
+                setZones(new Map());
+                setScratchScore(null);
+                goTo("home", -1);
+              }}
             />
           </motion.div>
         )}

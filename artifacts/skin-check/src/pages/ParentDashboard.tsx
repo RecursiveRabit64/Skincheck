@@ -149,9 +149,10 @@ function ChildCard({ profile, reports, colorClass, onSwitchToCheckin }: {
       {sorted.length === 0 ? (
         <div className="px-4 pb-4 flex flex-col items-center gap-2 py-4 text-center bg-muted/20 mx-4 mb-4 rounded-xl">
           <AlertCircle className="w-6 h-6 text-muted-foreground/40" />
-          <p className="text-xs text-muted-foreground">No check-ins recorded yet.</p>
+          <p className="text-xs text-muted-foreground font-medium">No reports yet.</p>
+          <p className="text-[11px] text-muted-foreground">Complete a skin check to begin tracking progress.</p>
           <Button size="sm" className="rounded-xl text-xs h-8 mt-1" onClick={handleCheckin}>
-            Start First Check-in
+            Start First Check-In
           </Button>
         </div>
       ) : (

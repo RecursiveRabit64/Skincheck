@@ -1,0 +1,34 @@
+Update the daily check-in procedure.
+-remove the "tap to increase severity" feature. Keep the "emoji to determine severity" feature.
+-The color of the affected skin part is determined by the emoji chosen.
+     -bad = red.
+     -medium = light orange.
+     -ok = yellow.
+-Make sure to differentiate between colors.
+-Remove the slider for the skin conditions. Bring back the ordered cards.
+-Update the daily check-in system so users can only complete one check-in per day.
+-Use the device's local calendar date.
+-Once a user completes a check-in for today, do not allow another new check-in.
+-If today's check-in already exists, allow the user to view or edit it instead.
+-Preserve all existing information when editing.
+-Timeline, reports, and streak calculations should treat edited entries as the same  day's record.
+-Make the wording of daily questions adapt to the time of day.
+      Before approximately 5:00 PM, ask:
+      "How has your skin felt so far today?"
+      After approximately 5:00 PM, ask:
+      "How did your skin feel today?"
+-This only changes the wording, not the stored data.
+-Selecting View Today's Check-In should open today's saved check-in in edit/view mode instead of creating a new one.
+-Improve empty-state screens throughout the app.
+-If the child has never completed a check-in:
+-Display: "No skin history yet. Complete your first skin check to begin tracking your progress." Start First Check-In button
+-If the parent dashboard has no available history, display "No reports yet."
+-Avoid showing blank pages or generic "No Data" messages.
+-After completing a daily check-in, show a short completion screen before returning to the home page.
+For example: 
+"Skin Check Complete. Great job! We'll use today's information to help you and your family better understand your skin over time." Continue button.
+-After pressing Continue, return to the home page.
+-The home page should now display the completed Today's Skin Check card with -the View Today's Check-In button.
+-Keep the current visual design and overall layout.
+-Do not redesign the app.
+

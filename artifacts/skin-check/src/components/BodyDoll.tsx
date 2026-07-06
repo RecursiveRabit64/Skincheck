@@ -1,4 +1,3 @@
-import { useRef, useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -37,13 +36,11 @@ export const frontZonesDef: ZoneDef[] = [
   { id: "lips",              d: "M86,76 Q93,70 100,74 Q107,70 114,76 Q111,90 100,93 Q89,90 86,76 Z",                    label: "Lips" },
   { id: "chin",              d: "M84,88 Q100,102 116,88 Q112,107 100,110 Q88,107 84,88 Z",                               label: "Chin" },
   { id: "neck",              d: "M87,99 L113,99 Q116,118 116,124 Q100,128 84,124 Q84,118 87,99 Z",                       label: "Neck" },
-
   // Upper body
   { id: "left_shoulder",     d: "M84,124 Q62,112 40,128 Q26,140 26,158 L76,158 Q74,144 76,136 Q82,130 84,124 Z",        label: "Left Shoulder" },
   { id: "right_shoulder",    d: "M116,124 Q118,130 124,136 Q126,144 124,158 L174,158 Q174,140 160,128 Q138,112 116,124 Z", label: "Right Shoulder" },
   { id: "chest",             d: "M74,158 Q100,154 126,158 L122,212 Q100,216 78,212 Z",                                   label: "Chest" },
   { id: "abdomen",           d: "M78,212 Q100,216 122,212 L120,262 Q100,267 80,262 Z",                                   label: "Abdomen" },
-
   // Arms (front)
   { id: "left_upper_arm",    d: "M22,156 L48,156 L40,216 L14,216 Z",                                                     label: "Left Upper Arm" },
   { id: "right_upper_arm",   d: "M152,156 L178,156 L186,216 L160,216 Z",                                                 label: "Right Upper Arm" },
@@ -53,7 +50,6 @@ export const frontZonesDef: ZoneDef[] = [
   { id: "right_wrist",       d: "M168,270 L196,270 L198,284 L170,286 Z",                                                 label: "Right Wrist" },
   { id: "left_hand",         d: "M2,284 L30,284 L26,310 L0,308 Z",                                                       label: "Left Hand" },
   { id: "right_hand",        d: "M170,284 L198,284 L200,308 L172,310 Z",                                                 label: "Right Hand" },
-
   // Lower body (front)
   { id: "left_inner_thigh",  d: "M80,262 L102,262 L100,334 L82,336 Z",                                                   label: "Left Inner Thigh" },
   { id: "right_inner_thigh", d: "M98,262 L120,262 L118,336 L100,334 Z",                                                  label: "Right Inner Thigh" },
@@ -100,7 +96,23 @@ export const backZonesDef: ZoneDef[] = [
 
 export const zonesDef: ZoneDef[] = [...frontZonesDef, ...backZonesDef];
 
-// ── Human Silhouette ─────────────────────────────────────────────────────────
+// ── Severity → color ──────────────────────────────────────────────────────────
+
+function zoneColors(severity: number): { fill: string; stroke: string } {
+  if (severity <= 0) return { fill: "transparent", stroke: "rgba(160,110,85,0.22)" };
+  if (severity <= 4) return { fill: "rgba(234,179,8,0.45)",  stroke: "rgba(161,120,0,0.5)"  };  // yellow  — ok
+  if (severity <= 7) return { fill: "rgba(249,115,22,0.50)", stroke: "rgba(180,80,0,0.5)"   };  // orange  — medium
+  return              { fill: "rgba(239,68,68,0.65)",  stroke: "rgba(185,45,45,0.55)" };         // red     — bad
+}
+
+function sevLabel(severity: number): string {
+  if (severity <= 0) return "Clear";
+  if (severity <= 4) return "😊 Mild";
+  if (severity <= 7) return "😐 Moderate";
+  return "😢 Severe";
+}
+
+// ── Silhouettes ───────────────────────────────────────────────────────────────
 
 function FrontSilhouette() {
   return (
@@ -166,7 +178,6 @@ interface BodyDollProps {
   view?: DollView;
   readonly?: boolean;
   onZoneInteract?: (region: string) => void;
-  onZoneInteractHold?: (region: string) => void;
   onZoneMedicateClick?: (region: string) => void;
 }
 
@@ -177,46 +188,15 @@ export function BodyDoll({
   view = "front",
   readonly = false,
   onZoneInteract,
-  onZoneInteractHold,
   onZoneMedicateClick,
 }: BodyDollProps) {
-  const [activeZone, setActiveZone] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startHold = useCallback(
-    (id: string) => {
-      if (readonly || !onZoneInteract || !onZoneInteractHold) return;
-      onZoneInteract(id);
-      setActiveZone(id);
-      intervalRef.current = setInterval(() => onZoneInteractHold(id), 150);
-    },
-    [readonly, onZoneInteract, onZoneInteractHold]
-  );
-
-  const stopHold = useCallback(() => {
-    setActiveZone(null);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => stopHold(), [stopHold]);
-
   const currentZones = view === "front" ? frontZonesDef : backZonesDef;
 
   const zonePaths = currentZones.map((zone) => {
     const data = zones.get(zone.id);
     const severity = data?.severity ?? 0;
-    const redOpacity = Math.min(severity * 0.082, 0.82);
-    const fillColor = severity > 0 ? `rgba(239,68,68,${redOpacity.toFixed(3)})` : "transparent";
-    const strokeColor =
-      !readonly && mode === "medicate" && severity > 0
-        ? "hsl(142 71% 45%)"
-        : severity > 0
-        ? `rgba(200,60,60,0.5)`
-        : "rgba(160,110,85,0.22)";
-    const strokeWidth = severity > 0 ? (!readonly && mode === "medicate" ? 2.5 : 1.8) : 1;
+    const { fill: fillColor, stroke: strokeColor } = zoneColors(severity);
+    const strokeWidth = severity > 0 ? 1.8 : 1;
 
     if (readonly) {
       return (
@@ -231,6 +211,8 @@ export function BodyDoll({
       );
     }
 
+    const isClickable = mode === "mark" || (mode === "medicate" && severity > 0);
+
     return (
       <Tooltip key={zone.id} delayDuration={0}>
         <TooltipTrigger asChild>
@@ -240,44 +222,26 @@ export function BodyDoll({
             stroke={strokeColor}
             strokeWidth={strokeWidth}
             data-testid={`zone-${zone.id}`}
-            className={
-              mode === "mark"
-                ? "cursor-pointer hover:brightness-90 transition-all"
-                : severity > 0
-                ? "cursor-pointer hover:brightness-90 transition-all"
-                : "cursor-default"
-            }
-            onMouseDown={(e) => {
+            className={isClickable ? "cursor-pointer transition-all" : "cursor-default"}
+            whileTap={isClickable ? { scale: 0.93 } : {}}
+            onClick={(e) => {
               e.preventDefault();
-              if (mode === "mark") startHold(zone.id);
+              if (mode === "mark") onZoneInteract?.(zone.id);
               else if (severity > 0) onZoneMedicateClick?.(zone.id);
             }}
-            onMouseUp={() => { if (mode === "mark") stopHold(); }}
-            onMouseLeave={() => { if (mode === "mark") stopHold(); }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              if (mode === "mark") startHold(zone.id);
-              else if (severity > 0) onZoneMedicateClick?.(zone.id);
-            }}
-            onTouchEnd={() => { if (mode === "mark") stopHold(); }}
-            onTouchCancel={() => { if (mode === "mark") stopHold(); }}
-            whileTap={{ scale: mode === "mark" ? 0.93 : 1 }}
-            animate={activeZone === zone.id ? { scale: [1, 0.93, 1] } : {}}
           />
         </TooltipTrigger>
         <TooltipContent side="right" className="max-w-[160px]">
           <p className="font-semibold text-sm">{zone.label}</p>
           {severity > 0 ? (
             <>
-              <p className="text-xs text-muted-foreground">
-                {data?.condition} — Severity {Math.round(severity)}/10
-              </p>
+              <p className="text-xs text-muted-foreground">{data?.condition} — {sevLabel(severity)}</p>
               {data?.medication && (
                 <p className="text-xs text-green-600 font-medium">Treating: {data.medication}</p>
               )}
             </>
           ) : (
-            <p className="text-xs text-muted-foreground">Clear</p>
+            <p className="text-xs text-muted-foreground">Tap to mark</p>
           )}
         </TooltipContent>
       </Tooltip>
