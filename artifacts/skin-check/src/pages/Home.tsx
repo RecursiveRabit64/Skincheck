@@ -204,12 +204,56 @@ function ProgressDots({ step }: { step: 1 | 2 }) {
   );
 }
 
+// ── Streak helper ─────────────────────────────────────────────────────────────
+
+function calcStreak(dates: string[]): number {
+  if (dates.length === 0) return 0;
+  const sorted = [...new Set(dates)].sort((a, b) => b.localeCompare(a));
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+  let streak = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1] + "T12:00:00");
+    prev.setDate(prev.getDate() - 1);
+    if (prev.toISOString().slice(0, 10) === sorted[i]) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function streakEmoji(n: number): string {
+  if (n === 0) return "🌱";
+  if (n < 3)  return "✨";
+  if (n < 7)  return "🔥";
+  if (n < 14) return "🔥🔥";
+  if (n < 30) return "⭐";
+  return "🏆";
+}
+
+function formatLastCheckin(date: string | null): string | null {
+  if (!date) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  if (date === today) return "Today";
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  if (date === d.toISOString().slice(0, 10)) return "Yesterday";
+  const parsed = new Date(date + "T00:00:00");
+  return parsed.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 // ── Home Landing ──────────────────────────────────────────────────────────────
 
 function HomeLanding({
   profile,
   profiles,
   lastCheckinDate,
+  completedToday,
+  streak,
   onStart,
   onOpenDashboard,
   onOpenSettings,
@@ -217,35 +261,29 @@ function HomeLanding({
   profile: StoredProfile | null;
   profiles: StoredProfile[];
   lastCheckinDate: string | null;
+  completedToday: boolean;
+  streak: number;
   onStart: () => void;
   onOpenDashboard: () => void;
   onOpenSettings: () => void;
 }) {
   const { text, emoji } = getGreeting();
   const isParent = profile?.userType === "parent";
-
-  const lastCheckinLabel = lastCheckinDate
-    ? (() => {
-        const today = new Date().toISOString().slice(0, 10);
-        if (lastCheckinDate === today) return "Today";
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (lastCheckinDate === yesterday.toISOString().slice(0, 10)) return "Yesterday";
-        const d = new Date(lastCheckinDate + "T00:00:00");
-        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      })()
-    : null;
+  const lastCheckinLabel = formatLastCheckin(completedToday ? null : lastCheckinDate);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-primary/5 via-background to-background px-5 pt-5 pb-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-primary/5 via-background to-background">
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-2">
         {profile && (
           <div className="flex items-center gap-2">
             <motion.div
               whileTap={{ scale: 0.9 }}
               onClick={onOpenSettings}
-              className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer", profileColor(profiles, profile.id))}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer shrink-0",
+                profileColor(profiles, profile.id)
+              )}
             >
               {profile.name.slice(0, 2).toUpperCase()}
             </motion.div>
@@ -269,46 +307,104 @@ function HomeLanding({
         </div>
       </div>
 
-      {/* Greeting */}
+      {/* ── Greeting ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="px-5 pt-3 pb-1"
+      >
+        <p className="text-2xl font-bold text-foreground">
+          {text}, {profile?.name ?? "there"}! {emoji}
+        </p>
+      </motion.div>
+
+      {/* ── Today's check-in status card ── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex-1 flex flex-col"
+        transition={{ duration: 0.35, delay: 0.07 }}
+        className="mx-5 mt-4"
       >
-        <p className="text-muted-foreground text-sm font-medium">
-          {text}, {profile?.name ?? "friend"}! {emoji}
-        </p>
-        <h1 className="text-2xl font-bold text-foreground mt-1 leading-snug">
-          Ready for today's<br />skin check?
-        </h1>
-
-        {/* Decorative body illustration */}
-        <div className="flex-1 flex items-center justify-center py-6 relative">
-          <div className="w-[140px] opacity-60 pointer-events-none select-none">
-            <BodyDoll zones={new Map()} view="front" readonly />
+        <div className={cn(
+          "rounded-2xl border px-4 py-4 flex items-center gap-4 shadow-sm",
+          completedToday
+            ? "bg-green-50 border-green-200"
+            : "bg-white border-border"
+        )}>
+          <div className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0",
+            completedToday ? "bg-green-100" : "bg-primary/10"
+          )}>
+            {completedToday ? "✅" : "📋"}
           </div>
-          {lastCheckinLabel && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white border border-border rounded-full px-3 py-1 text-[11px] text-muted-foreground shadow-sm whitespace-nowrap">
-              Last check-in: <span className="font-semibold text-foreground">{lastCheckinLabel}</span>
-            </div>
-          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's skin check</p>
+            <p className={cn("text-base font-bold mt-0.5", completedToday ? "text-green-700" : "text-foreground")}>
+              {completedToday ? "Completed!" : "Not completed yet"}
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            {!completedToday && (
+              <>
+                <p className="text-[10px] text-muted-foreground">Est. time</p>
+                <p className="text-sm font-semibold text-foreground">~2 min</p>
+              </>
+            )}
+          </div>
         </div>
+      </motion.div>
 
-        {/* CTA */}
-        <div className="space-y-3">
-          <motion.div whileTap={{ scale: 0.97 }}>
-            <Button
-              className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg flex items-center gap-3"
-              onClick={onStart}
-            >
-              Start Check-In
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </motion.div>
-          {!lastCheckinLabel && (
-            <p className="text-center text-xs text-muted-foreground">Takes about 2 minutes</p>
-          )}
+      {/* ── Spacer + Start button ── */}
+      <div className="flex-1" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.14 }}
+        className="px-5 space-y-3"
+      >
+        <motion.div whileTap={{ scale: 0.97 }}>
+          <Button
+            className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg"
+            onClick={onStart}
+          >
+            {completedToday ? "Update Today's Check-In" : "Start Check-In"}
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </Button>
+        </motion.div>
+
+        {/* Last check-in */}
+        {lastCheckinLabel && !completedToday && (
+          <p className="text-center text-sm text-muted-foreground">
+            Last check-in: <span className="font-semibold text-foreground">{lastCheckinLabel}</span>
+          </p>
+        )}
+        {!lastCheckinDate && (
+          <p className="text-center text-xs text-muted-foreground">Takes about 2 minutes</p>
+        )}
+      </motion.div>
+
+      {/* ── Streak bar ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.35, delay: 0.2 }}
+        className="mx-5 mt-6 mb-8"
+      >
+        <div className="rounded-2xl border border-border bg-white px-4 py-3 flex items-center gap-3 shadow-sm">
+          <span className="text-2xl leading-none">{streakEmoji(streak)}</span>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Progress</p>
+            {streak > 0 ? (
+              <p className="text-sm font-bold text-foreground">
+                {streak} day streak{streak === 1 ? "" : ""}
+                {streak >= 7 ? " — amazing! 🎉" : streak >= 3 ? " — keep it up!" : ""}
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-muted-foreground">Start your first streak!</p>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
@@ -864,11 +960,15 @@ export default function Home() {
     setShowSettings(false);
   };
 
-  // Last check-in for current profile
-  const lastCheckinDate = useMemo(() => {
-    if (!activeProfile) return null;
+  // Derived stats for current profile
+  const { lastCheckinDate, completedToday, streak } = useMemo(() => {
+    if (!activeProfile) return { lastCheckinDate: null, completedToday: false, streak: 0 };
     const reports = getReportsForProfile(activeProfile.id);
-    return reports[0]?.date ?? null;
+    const today = new Date().toISOString().slice(0, 10);
+    const last = reports[0]?.date ?? null;
+    const done = last === today;
+    const dates = reports.map((r) => r.date);
+    return { lastCheckinDate: last, completedToday: done, streak: calcStreak(dates) };
   }, [activeProfile, getReportsForProfile]);
 
   if (showAddProfile) {
@@ -888,6 +988,8 @@ export default function Home() {
               profile={activeProfile}
               profiles={profiles}
               lastCheckinDate={lastCheckinDate}
+              completedToday={completedToday}
+              streak={streak}
               onStart={() => goTo("phase1", 1)}
               onOpenDashboard={() => setShowDashboard(true)}
               onOpenSettings={() => setShowSettings(true)}
