@@ -11,6 +11,7 @@ export interface CheckInReport {
   profileId: string;
   date: string;
   zones: Record<string, ZoneEntry>;
+  scratchScore?: number;
   createdAt: string;
 }
 
@@ -20,7 +21,7 @@ interface CheckInStore {
 
 interface CheckInContextValue {
   reports: CheckInReport[];
-  saveReport: (profileId: string, zones: Map<string, ZoneEntry>) => CheckInReport;
+  saveReport: (profileId: string, zones: Map<string, ZoneEntry>, scratchScore?: number) => CheckInReport;
   getReportsForProfile: (profileId: string) => CheckInReport[];
   deleteReport: (id: string) => void;
 }
@@ -60,7 +61,7 @@ export function CheckInProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveReport = useCallback(
-    (profileId: string, zones: Map<string, ZoneEntry>): CheckInReport => {
+    (profileId: string, zones: Map<string, ZoneEntry>, scratchScore?: number): CheckInReport => {
       const today = todayStr();
       const zonesRecord: Record<string, ZoneEntry> = {};
       zones.forEach((v, k) => {
@@ -72,6 +73,7 @@ export function CheckInProvider({ children }: { children: ReactNode }) {
         profileId,
         date: today,
         zones: zonesRecord,
+        scratchScore,
         createdAt: new Date().toISOString(),
       };
 
