@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, Baby, GraduationCap, User, ChevronRight, ArrowLeft, Shield, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,13 @@ interface OnboardingProps {
   onDone?: (profile: StoredProfile) => void;
 }
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1;
 
-const USER_TYPES: {
+const PROFILE_TYPES: {
   type: UserType;
   icon: React.ElementType;
   label: string;
   sub: string;
-  color: string;
   ages: { label: string; value: AgeRange }[];
 }[] = [
   {
@@ -27,10 +26,9 @@ const USER_TYPES: {
     icon: Baby,
     label: "Child",
     sub: "Ages 5–12",
-    color: "bg-blue-50 border-blue-200 text-blue-700",
     ages: [
-      { label: "5–7 years old", value: "5-7" },
-      { label: "8–12 years old", value: "8-12" },
+      { label: "5–7", value: "5-7" },
+      { label: "8–12", value: "8-12" },
     ],
   },
   {
@@ -38,15 +36,13 @@ const USER_TYPES: {
     icon: GraduationCap,
     label: "Teen",
     sub: "Ages 13–17",
-    color: "bg-purple-50 border-purple-200 text-purple-700",
-    ages: [{ label: "13–17 years old", value: "13-17" }],
+    ages: [{ label: "13–17", value: "13-17" }],
   },
   {
     type: "parent",
     icon: User,
-    label: "Parent / Adult",
+    label: "Parent",
     sub: "Ages 18+",
-    color: "bg-green-50 border-green-200 text-green-700",
     ages: [
       { label: "18–35", value: "18-35" },
       { label: "35–55", value: "35-55" },
@@ -67,36 +63,37 @@ const DEFAULT_NAME: Record<UserType, string> = {
   parent: "Parent",
 };
 
-const NAME_PLACEHOLDER: Record<UserType, string> = {
-  child: "Child's name (optional)",
-  teen: "Teen's name (optional)",
-  parent: "Your name (optional)",
-};
-
 export default function Onboarding({ skipWelcome, onCancel, onDone }: OnboardingProps) {
   const { addProfile } = useProfile();
   const [step, setStep] = useState<Step>(skipWelcome ? 1 : 0);
   const [dir, setDir] = useState(1);
+
   const [userType, setUserType] = useState<UserType | null>(null);
   const [nameInput, setNameInput] = useState("");
-  const nameRef = useRef(nameInput);
-  nameRef.current = nameInput;
+  const [ageRange, setAgeRange] = useState<AgeRange | null>(null);
 
   const go = (next: Step) => {
     setDir(next > step ? 1 : -1);
     setStep(next);
   };
 
-  const selectedType = USER_TYPES.find((t) => t.type === userType);
+  const selectedTypeDef = PROFILE_TYPES.find((t) => t.type === userType);
 
   const handleSelectType = (type: UserType) => {
+    if (type === userType) return;
     setUserType(type);
-    go(2);
+    const newTypeDef = PROFILE_TYPES.find((t) => t.type === type)!;
+    const validValues = newTypeDef.ages.map((a) => a.value);
+    if (ageRange && !validValues.includes(ageRange)) {
+      setAgeRange(null);
+    }
   };
 
-  const handleComplete = (ageRange: AgeRange) => {
-    if (!userType) return;
-    const name = nameRef.current.trim() || DEFAULT_NAME[userType];
+  const canCreate = userType !== null && nameInput.trim().length > 0 && ageRange !== null;
+
+  const handleCreate = () => {
+    if (!canCreate || !userType || !ageRange) return;
+    const name = nameInput.trim() || DEFAULT_NAME[userType];
     const profile = addProfile({ name, userType, ageRange });
     onDone?.(profile);
   };
@@ -146,14 +143,14 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
               </Button>
 
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-                SkinCheck is for informational purposes only and does not replace professional medical advice.
+                Patch is for informational purposes only and does not replace professional medical advice.
               </p>
             </motion.div>
           )}
 
           {step === 1 && (
             <motion.div
-              key="who"
+              key="create"
               custom={dir}
               variants={slideVariants}
               initial="enter"
@@ -169,94 +166,107 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
                 <ArrowLeft className="w-4 h-4" /> {skipWelcome ? "Cancel" : "Back"}
               </button>
 
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Who's this profile for?</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  We'll tailor the experience to the right age group.
-                </p>
+              <div>
+                <h2 className="text-2xl font-bold">Create Profile</h2>
+                <p className="text-muted-foreground text-sm mt-1">Who is this profile for?</p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                {USER_TYPES.map(({ type, icon: Icon, label, sub, color }) => (
-                  <button
-                    key={type}
-                    onClick={() => handleSelectType(type)}
-                    className={cn(
-                      "flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all hover:shadow-sm active:scale-[0.98]",
-                      color
-                    )}
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-white/70 flex items-center justify-center shrink-0">
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-base">{label}</p>
-                      <p className="text-sm opacity-75">{sub}</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 ml-auto opacity-50" />
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {step === 2 && selectedType && (
-            <motion.div
-              key="age-name"
-              custom={dir}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.22, ease: "easeInOut" }}
-              className="flex flex-col gap-6"
-            >
-              <button
-                onClick={() => go(1)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
-              >
-                <ArrowLeft className="w-4 h-4" /> Back
-              </button>
-
-              <div className="text-center">
-                <h2 className="text-2xl font-bold">Almost done!</h2>
-                <p className="text-muted-foreground text-sm mt-1">Give this profile a name and choose an age range.</p>
+              {/* Profile type selector */}
+              <div className="grid grid-cols-3 gap-2">
+                {PROFILE_TYPES.map(({ type, icon: Icon, label, sub }) => {
+                  const selected = userType === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => handleSelectType(type)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 py-3.5 px-2 rounded-2xl border-2 text-center transition-all active:scale-[0.97]",
+                        selected
+                          ? "border-primary bg-primary/8 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+                        selected ? "bg-primary/15" : "bg-muted"
+                      )}>
+                        <Icon className="w-4.5 h-4.5" />
+                      </div>
+                      <span className="text-xs font-semibold leading-tight">{label}</span>
+                      <span className={cn("text-[10px] leading-tight", selected ? "text-primary/70" : "text-muted-foreground/60")}>{sub}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-foreground">Profile name</label>
+              {/* Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">Name</label>
                 <Input
-                  placeholder={NAME_PLACEHOLDER[selectedType.type]}
+                  placeholder={
+                    userType === "child" ? "Child's name" :
+                    userType === "teen"  ? "Teen's name" :
+                    userType === "parent" ? "Your name" :
+                    "Enter a name"
+                  }
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   className="rounded-xl h-12 text-base"
-                  autoFocus
                   maxLength={32}
                 />
+                <p className="text-[11px] text-muted-foreground/70 leading-snug">
+                  You can change the name later in settings.
+                </p>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-foreground">Age range</label>
-                <div className="flex flex-col gap-3">
-                  {selectedType.ages.map(({ label, value }) => (
-                    <button
-                      key={value}
-                      onClick={() => handleComplete(value)}
-                      className={cn(
-                        "flex items-center justify-between p-5 rounded-2xl border-2 text-left font-semibold text-lg transition-all hover:shadow-sm active:scale-[0.98]",
-                        selectedType.color
-                      )}
-                    >
-                      {label}
-                      <ChevronRight className="w-5 h-5 opacity-50" />
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Age range — only shown once a type is selected */}
+              <AnimatePresence mode="wait">
+                {selectedTypeDef && (
+                  <motion.div
+                    key={selectedTypeDef.type}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex flex-col gap-2"
+                  >
+                    <label className="text-sm font-medium text-foreground">Age Range</label>
+                    <div className={cn("grid gap-2", selectedTypeDef.ages.length <= 2 ? "grid-cols-2" : "grid-cols-3")}>
+                      {selectedTypeDef.ages.map(({ label, value }) => {
+                        const selected = ageRange === value;
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => setAgeRange(value)}
+                            className={cn(
+                              "py-3 px-2 rounded-xl border-2 text-sm font-semibold text-center transition-all active:scale-[0.97]",
+                              selected
+                                ? "border-primary bg-primary/8 text-primary"
+                                : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            )}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-              <p className="text-xs text-center text-muted-foreground">
-                You can update the name and age range anytime from settings.
-              </p>
+              {/* Create button */}
+              <motion.div whileTap={canCreate ? { scale: 0.97 } : {}}>
+                <Button
+                  className={cn(
+                    "w-full h-14 rounded-2xl text-base font-bold transition-all",
+                    canCreate ? "shadow-md" : "opacity-40 cursor-not-allowed"
+                  )}
+                  onClick={handleCreate}
+                  disabled={!canCreate}
+                >
+                  Create Profile
+                </Button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
