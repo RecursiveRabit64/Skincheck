@@ -880,13 +880,24 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     if (!deleteConfirmProfile) return;
     const profileToDelete = deleteConfirmProfile;
     setDeleteConfirmProfile(null);
+
+    const remaining = profiles.filter((p) => p.id !== profileToDelete.id);
+
+    if (remaining.length === 0) {
+      // Last profile — remove immediately so AppShell shows Onboarding right away
+      removeProfile(profileToDelete.id);
+      deleteReportsForProfile(profileToDelete.id);
+      onClose();
+      return;
+    }
+
     pendingDeleteRef.current = profileToDelete.id;
     setPendingDeleteProfile(profileToDelete);
     if (profileToDelete.id === activeProfile?.id) {
-      const other = profiles.find((p) => p.id !== profileToDelete.id);
+      const other = remaining[0];
       if (other) onSwitchProfile(other.id);
     }
-  }, [deleteConfirmProfile, activeProfile, profiles, onSwitchProfile]);
+  }, [deleteConfirmProfile, activeProfile, profiles, onSwitchProfile, removeProfile, deleteReportsForProfile, onClose]);
 
   const handleUndo = useCallback(() => {
     pendingDeleteRef.current = null;
