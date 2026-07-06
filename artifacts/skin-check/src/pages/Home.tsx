@@ -185,6 +185,17 @@ function getGreeting(): { text: string; emoji: string } {
 
 const zoneLabelMap: Record<string, string> = Object.fromEntries(zonesDef.map((z) => [z.id, z.label]));
 
+const CONDITION_EMOJI: Record<string, string> = {
+  "Acne": "😤", "Blackheads": "⚫", "Whiteheads": "⚪", "Cystic Acne": "😣",
+  "Eczema": "🔴", "Dry Skin": "🌵", "Seborrheic Dermatitis": "💧",
+  "Rash": "🔥", "Hives": "🐝", "Sunburn": "☀️", "Bug Bite": "🦟", "Contact Dermatitis": "💥",
+  "Psoriasis": "❄️", "Rosacea": "🌹",
+  "Ringworm": "🔵", "Athlete's Foot": "👟", "Fungal Rash": "🍄",
+  "Warts": "🎯", "Keratosis Pilaris": "🐓",
+};
+
+type Phase1Mode = "add" | "inspect";
+
 const USER_TYPE_ICON: Record<string, React.ElementType> = { child: Baby, teen: GraduationCap, parent: User };
 const USER_TYPE_LABELS: Record<string, string> = { child: "Child", teen: "Teen", parent: "Parent" };
 const PROFILE_COLORS = [
@@ -586,6 +597,8 @@ function Phase1({
   const allConditions = conditionGroups.flatMap((g) => g.conditions);
   const defaultCondition = allConditions[0];
 
+  const [phase1Mode, setPhase1Mode] = useState<Phase1Mode>("add");
+  const [inspectZone, setInspectZone] = useState<string | null>(null);
   const [currentCondition, setCurrentCondition] = useState<SkinCondition>(defaultCondition);
   const [dollView, setDollView] = useState<DollView>("front");
   const [activeTrayZone, setActiveTrayZone] = useState<string | null>(null);
@@ -603,6 +616,10 @@ function Phase1({
   };
 
   const handleZoneTap = useCallback((id: string) => {
+    if (phase1Mode === "inspect") {
+      setInspectZone(id);
+      return;
+    }
     setZones((prev) => {
       pushHistory(prev);
       const next = new Map(prev);
@@ -615,7 +632,7 @@ function Phase1({
       return next;
     });
     setActiveTrayZone(id);
-  }, [currentCondition, pushHistory, setZones]);
+  }, [phase1Mode, currentCondition, pushHistory, setZones]);
 
   const handleSeveritySelect = (severity: number) => {
     if (!activeTrayZone) return;
@@ -640,6 +657,13 @@ function Phase1({
   };
 
   const activeZoneData = activeTrayZone ? zones.get(activeTrayZone) : undefined;
+  const inspectZoneData = inspectZone ? zones.get(inspectZone) : undefined;
+
+  const switchMode = (m: Phase1Mode) => {
+    setPhase1Mode(m);
+    setActiveTrayZone(null);
+    setInspectZone(null);
+  };
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
@@ -652,33 +676,56 @@ function Phase1({
         <div className="w-16" />
       </div>
 
-      <div className="px-4 mb-3">
+      <div className="px-4 mb-2">
         <h2 className="text-xl font-bold">Where does it bother you?</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Tap the body to mark the area</p>
       </div>
 
-      {/* Condition cards — ordered 2-column grid */}
-      <div className="px-4 mb-2">
-        <div className="grid grid-cols-2 gap-1.5 max-h-[148px] overflow-y-auto scrollbar-none">
-          {allConditions.map((cond) => {
-            const isActive = currentCondition === cond;
-            return (
-              <motion.button
-                key={cond}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setCurrentCondition(cond)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
-                  conditionChipClass(cond, isActive)
-                )}
-              >
-                <div className={cn("w-2 h-2 rounded-full shrink-0", conditionDotClass(cond, isActive))} />
-                <span className="truncate">{cond}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+      {/* Mode toggle */}
+      <div className="flex mx-4 mb-2 bg-muted rounded-xl p-0.5 gap-0.5">
+        <button
+          onClick={() => switchMode("add")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] text-xs font-semibold transition-all",
+            phase1Mode === "add" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+          )}
+        >
+          <Plus className="w-3.5 h-3.5" /> Add conditions
+        </button>
+        <button
+          onClick={() => switchMode("inspect")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] text-xs font-semibold transition-all",
+            phase1Mode === "inspect" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+          )}
+        >
+          <Search className="w-3.5 h-3.5" /> View conditions
+        </button>
       </div>
+
+      {/* Condition cards — only in add mode */}
+      {phase1Mode === "add" && (
+        <div className="px-4 mb-2">
+          <div className="grid grid-cols-2 gap-1.5 max-h-[148px] overflow-y-auto scrollbar-none">
+            {allConditions.map((cond) => {
+              const isActive = currentCondition === cond;
+              return (
+                <motion.button
+                  key={cond}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setCurrentCondition(cond)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
+                    conditionChipClass(cond, isActive)
+                  )}
+                >
+                  <span className="text-base leading-none shrink-0">{CONDITION_EMOJI[cond] ?? "🩹"}</span>
+                  <span className="truncate">{cond}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Front/Back toggle */}
       <div className="flex items-center justify-center gap-2 px-4 mb-2">
@@ -707,31 +754,80 @@ function Phase1({
           onZoneInteract={handleZoneTap}
         />
 
-        {/* Undo / Reset */}
-        <div className="absolute top-0 right-4 flex flex-col gap-2">
-          <motion.button whileTap={{ scale: 0.88 }} onClick={handleUndo} disabled={history.current.length === 0}
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm disabled:opacity-30 text-muted-foreground"
-          >
-            <Undo2 className="w-4 h-4" />
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.88 }} onClick={() => { pushHistory(zones); setZones(new Map()); }}
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm text-muted-foreground"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </motion.button>
-        </div>
-      </div>
-
-      {/* Marked count */}
-      <div className="px-4 py-2 text-center">
-        {zones.size > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {zones.size} area{zones.size !== 1 ? "s" : ""} marked
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground/60">Tap a body part to get started</p>
+        {/* Undo / Reset (add mode only) */}
+        {phase1Mode === "add" && (
+          <div className="absolute top-0 right-4 flex flex-col gap-2">
+            <motion.button whileTap={{ scale: 0.88 }} onClick={handleUndo} disabled={history.current.length === 0}
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm disabled:opacity-30 text-muted-foreground"
+            >
+              <Undo2 className="w-4 h-4" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.88 }} onClick={() => { pushHistory(zones); setZones(new Map()); }}
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm text-muted-foreground"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </motion.button>
+          </div>
         )}
       </div>
+
+      {/* Inspect widget — shown in inspect mode */}
+      {phase1Mode === "inspect" ? (
+        <div className="px-4 py-2">
+          <AnimatePresence mode="wait">
+            {inspectZone && inspectZoneData ? (
+              <motion.div
+                key={inspectZone}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.15 }}
+                className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm"
+              >
+                <span className="text-3xl leading-none">{CONDITION_EMOJI[inspectZoneData.condition] ?? "🩹"}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-muted-foreground truncate">{zoneLabelMap[inspectZone] ?? inspectZone}</p>
+                  <p className="text-sm font-bold text-foreground truncate">{inspectZoneData.condition}</p>
+                  <p className="text-xs text-muted-foreground">{inspectZoneData.severity <= 4 ? "😊 Mild" : inspectZoneData.severity <= 7 ? "😐 Moderate" : "😢 Severe"}</p>
+                </div>
+              </motion.div>
+            ) : inspectZone && !inspectZoneData ? (
+              <motion.div
+                key="no-data"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.15 }}
+                className="bg-muted/50 rounded-2xl px-4 py-3 text-center"
+              >
+                <p className="text-sm text-muted-foreground">No conditions marked here.</p>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">Switch to Add mode to mark this area.</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-2"
+              >
+                <p className="text-xs text-muted-foreground/70">Add conditions or touch a body part with conditions on it</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ) : (
+        /* Marked count (add mode) */
+        <div className="px-4 py-2 text-center">
+          {zones.size > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {zones.size} area{zones.size !== 1 ? "s" : ""} marked
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground/60">Tap a body part to get started</p>
+          )}
+        </div>
+      )}
 
       {/* Continue button */}
       <div className="px-4 pb-8 pt-2">
@@ -747,9 +843,9 @@ function Phase1({
         </motion.div>
       </div>
 
-      {/* Severity Tray */}
+      {/* Severity Tray — add mode only */}
       <AnimatePresence>
-        {activeTrayZone && (
+        {phase1Mode === "add" && activeTrayZone && (
           <SeverityTray
             zoneId={activeTrayZone}
             zoneData={activeZoneData}

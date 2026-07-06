@@ -99,10 +99,10 @@ export const zonesDef: ZoneDef[] = [...frontZonesDef, ...backZonesDef];
 // ── Severity → color ──────────────────────────────────────────────────────────
 
 function zoneColors(severity: number): { fill: string; stroke: string } {
-  if (severity <= 0) return { fill: "transparent", stroke: "rgba(160,110,85,0.22)" };
-  if (severity <= 4) return { fill: "rgba(234,179,8,0.45)",  stroke: "rgba(161,120,0,0.5)"  };  // yellow  — ok
-  if (severity <= 7) return { fill: "rgba(249,115,22,0.50)", stroke: "rgba(180,80,0,0.5)"   };  // orange  — medium
-  return              { fill: "rgba(239,68,68,0.65)",  stroke: "rgba(185,45,45,0.55)" };         // red     — bad
+  if (severity <= 0) return { fill: "transparent", stroke: "rgba(130,85,60,0.38)" };
+  if (severity <= 4) return { fill: "rgba(234,179,8,0.45)",  stroke: "rgba(150,108,0,0.65)"  };
+  if (severity <= 7) return { fill: "rgba(249,115,22,0.50)", stroke: "rgba(170,70,0,0.65)"   };
+  return              { fill: "rgba(239,68,68,0.65)",  stroke: "rgba(175,35,35,0.70)" };
 }
 
 function sevLabel(severity: number): string {
@@ -206,6 +206,9 @@ export function BodyDoll({
           fill={fillColor}
           stroke={strokeColor}
           strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          filter={severity > 0 ? "url(#zone-round)" : undefined}
           style={{ cursor: "default" }}
         />
       );
@@ -221,6 +224,9 @@ export function BodyDoll({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            filter={severity > 0 ? "url(#zone-round)" : undefined}
             data-testid={`zone-${zone.id}`}
             className={isClickable ? "cursor-pointer transition-all" : "cursor-default"}
             whileTap={isClickable ? { scale: 0.93 } : {}}
@@ -255,6 +261,12 @@ export function BodyDoll({
         className="w-full h-full"
         style={{ touchAction: readonly ? "auto" : "none", userSelect: "none" }}
       >
+        <defs>
+          <filter id="zone-round" x="-12%" y="-12%" width="124%" height="124%">
+            <feMorphology operator="erode"  radius="3" in="SourceGraphic" result="eroded" />
+            <feMorphology operator="dilate" radius="3" in="eroded" />
+          </filter>
+        </defs>
         {view === "front" ? <FrontSilhouette /> : <BackSilhouette />}
         <g>{zonePaths}</g>
 

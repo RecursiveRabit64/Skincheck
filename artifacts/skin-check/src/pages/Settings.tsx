@@ -938,10 +938,10 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 28, stiffness: 260 }}
-      className="fixed inset-0 z-[100] bg-muted/30 flex flex-col"
+      className="fixed inset-0 z-[100] bg-background/85 backdrop-blur-md flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-4 bg-background border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-4 pt-12 pb-4 bg-background/95 backdrop-blur-sm border-b border-border/50 shrink-0">
         {screen === "main" ? (
           <div className="w-8" />
         ) : (
