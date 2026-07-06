@@ -851,6 +851,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     updateProfile, removeProfile,
     addFamily, renameFamily, deleteFamily,
     addProfileToFamily, removeProfileFromFamily,
+    setPendingLastDelete,
   } = useProfile();
   const { deleteReportsForProfile } = useCheckIn();
 
@@ -884,9 +885,8 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     const remaining = profiles.filter((p) => p.id !== profileToDelete.id);
 
     if (remaining.length === 0) {
-      // Last profile — remove immediately so AppShell shows Onboarding right away
-      removeProfile(profileToDelete.id);
-      deleteReportsForProfile(profileToDelete.id);
+      // Last profile — mark as pending so App-level toast + Onboarding show with undo
+      setPendingLastDelete(profileToDelete.id);
       onClose();
       return;
     }
@@ -897,7 +897,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
       const other = remaining[0];
       if (other) onSwitchProfile(other.id);
     }
-  }, [deleteConfirmProfile, activeProfile, profiles, onSwitchProfile, removeProfile, deleteReportsForProfile, onClose]);
+  }, [deleteConfirmProfile, activeProfile, profiles, onSwitchProfile, setPendingLastDelete, onClose]);
 
   const handleUndo = useCallback(() => {
     pendingDeleteRef.current = null;

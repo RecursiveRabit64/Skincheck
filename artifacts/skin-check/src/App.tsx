@@ -1,29 +1,107 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import { ProfileProvider, useProfile } from "./context/ProfileContext";
-import { CheckInProvider } from "./context/CheckInContext";
+import { ProfileProvider, useProfile, type StoredProfile } from "./context/ProfileContext";
+import { CheckInProvider, useCheckIn } from "./context/CheckInContext";
 import Home from "@/pages/Home";
 import Onboarding from "@/pages/Onboarding";
+import { useCallback } from "react";
 
 const queryClient = new QueryClient();
 
-function AppShell() {
-  const { profiles } = useProfile();
+function LastDeleteUndoToast({
+  profile,
+  onUndo,
+  onExpire,
+}: {
+  profile: StoredProfile;
+  onUndo: () => void;
+  onExpire: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 16, scale: 0.97 }}
+      transition={{ duration: 0.22 }}
+      className="fixed bottom-6 right-4 left-4 z-[9999] mx-auto max-w-xs"
+    >
+      <div className="relative bg-foreground text-background rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <span className="text-sm flex-1 font-medium">Deleted &ldquo;{profile.name}&rdquo;</span>
+          <button
+            onClick={onUndo}
+            className="text-sm font-bold text-primary-foreground/90 hover:text-primary-foreground shrink-0 px-1"
+          >
+            Undo
+          </button>
+        </div>
+        <motion.div
+          key={profile.id}
+          initial={{ scaleX: 1 }}
+          animate={{ scaleX: 0 }}
+          transition={{ duration: 5, ease: "linear" }}
+          onAnimationComplete={onExpire}
+          style={{ transformOrigin: "left", originX: 0 }}
+          className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/25 rounded-b-2xl"
+        />
+      </div>
+    </motion.div>
+  );
+}
 
-  if (profiles.length === 0) {
-    return <Onboarding />;
-  }
+function AppShell() {
+  const {
+    profiles,
+    pendingLastDeleteId,
+    cancelPendingLastDelete,
+    removeProfile,
+  } = useProfile();
+  const { deleteReportsForProfile } = useCheckIn();
+
+  const pendingProfile = pendingLastDeleteId
+    ? profiles.find((p) => p.id === pendingLastDeleteId) ?? null
+    : null;
+
+  const showOnboarding = profiles.length === 0 || pendingLastDeleteId !== null;
+
+  const handleExpire = useCallback(() => {
+    if (!pendingLastDeleteId) return;
+    removeProfile(pendingLastDeleteId);
+    deleteReportsForProfile(pendingLastDeleteId);
+  }, [pendingLastDeleteId, removeProfile, deleteReportsForProfile]);
+
+  const handleUndo = useCallback(() => {
+    cancelPendingLastDelete();
+  }, [cancelPendingLastDelete]);
 
   return (
-    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route component={NotFound} />
-      </Switch>
-    </WouterRouter>
+    <>
+      {showOnboarding ? (
+        <Onboarding />
+      ) : (
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route component={NotFound} />
+          </Switch>
+        </WouterRouter>
+      )}
+
+      <AnimatePresence>
+        {pendingProfile && (
+          <LastDeleteUndoToast
+            key={pendingProfile.id}
+            profile={pendingProfile}
+            onUndo={handleUndo}
+            onExpire={handleExpire}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

@@ -37,6 +37,9 @@ interface ProfileContextValue {
   deleteFamily: (id: string) => void;
   addProfileToFamily: (profileId: string, familyId: string) => void;
   removeProfileFromFamily: (profileId: string) => void;
+  pendingLastDeleteId: string | null;
+  setPendingLastDelete: (id: string) => void;
+  cancelPendingLastDelete: () => void;
 }
 
 const STORAGE_KEY = "skincheck_v3";
@@ -68,6 +71,7 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<ProfileStore>(loadStore);
+  const [pendingLastDeleteId, setPendingLastDeleteId] = useState<string | null>(null);
 
   const persist = useCallback((updater: (prev: ProfileStore) => ProfileStore) => {
     setStore((prev) => {
@@ -177,6 +181,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const setPendingLastDelete = useCallback((id: string) => {
+    setPendingLastDeleteId(id);
+  }, []);
+
+  const cancelPendingLastDelete = useCallback(() => {
+    setPendingLastDeleteId(null);
+  }, []);
+
   const activeProfile = store.profiles.find((p) => p.id === store.activeProfileId) ?? null;
 
   return (
@@ -195,6 +207,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         deleteFamily,
         addProfileToFamily,
         removeProfileFromFamily,
+        pendingLastDeleteId,
+        setPendingLastDelete,
+        cancelPendingLastDelete,
       }}
     >
       {children}
