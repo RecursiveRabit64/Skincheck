@@ -61,7 +61,7 @@ function avatarColor(name: string) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type SettingsScreen = "main" | "edit-profile" | "families" | "family-detail" | "manage-profiles" | "privacy" | "about";
+type SettingsScreen = "main" | "edit-profile" | "families" | "family-detail" | "privacy" | "about";
 
 // ── Slide variants ────────────────────────────────────────────────────────────
 
@@ -228,65 +228,90 @@ function DeleteConfirmDialog({
 
 function MainScreen({
   activeProfile,
+  profiles,
   families,
   onNav,
+  onEditProfile,
+  onDeleteRequest,
+  onAdd,
 }: {
   activeProfile: StoredProfile | null;
+  profiles: StoredProfile[];
   families: Family[];
   onNav: (screen: SettingsScreen) => void;
+  onEditProfile: (id: string) => void;
+  onDeleteRequest: (id: string) => void;
+  onAdd: () => void;
 }) {
-  const activeFamily = activeProfile?.familyId
-    ? families.find((f) => f.id === activeProfile.familyId)
-    : null;
-
-  const TypeIcon = activeProfile ? TYPE_ICON[activeProfile.userType] : User;
-
   return (
     <div className="flex flex-col gap-5">
-      {/* Profile card */}
+      {/* Profiles — highest priority section */}
       <div>
-        <SectionLabel>Profile</SectionLabel>
+        <SectionLabel>Profiles</SectionLabel>
         <SettingsCard>
-          {activeProfile ? (
-            <>
-              <div className="flex items-center gap-3.5 px-4 py-4">
-                <ProfileAvatar profile={activeProfile} size="lg" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-base text-foreground truncate">{activeProfile.name}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <TypeIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">{TYPE_LABEL[activeProfile.userType]} · {activeProfile.ageRange}</span>
+          {profiles.map((p, i) => {
+            const Icon = TYPE_ICON[p.userType];
+            const isActive = p.id === activeProfile?.id;
+            return (
+              <div key={p.id}>
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <ProfileAvatar profile={p} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                      {isActive && (
+                        <span className="text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full shrink-0">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                      <Icon className="w-3 h-3" />
+                      {TYPE_LABEL[p.userType]} · {p.ageRange}
+                    </div>
                   </div>
-                  {activeFamily && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      <Home className="inline w-3 h-3 mr-0.5" />
-                      {activeFamily.name}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => onEditProfile(p.id)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => onDeleteRequest(p.id)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </motion.button>
+                  </div>
                 </div>
+                {i < profiles.length - 1 && <div className="h-px bg-border mx-4" />}
               </div>
-              <div className="h-px bg-border mx-4" />
-              <SettingsRow icon={Pencil} label="Edit Profile" onPress={() => onNav("edit-profile")} last />
-            </>
-          ) : (
-            <div className="px-4 py-4 text-sm text-muted-foreground">No active profile</div>
-          )}
+            );
+          })}
         </SettingsCard>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onAdd}
+          className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-muted/20 hover:border-primary/30 hover:text-foreground transition-all"
+        >
+          <Plus className="w-4 h-4" /> Add Profile
+        </motion.button>
       </div>
 
       {/* Families */}
       <div>
         <SectionLabel>Families</SectionLabel>
         <SettingsCard>
-          <SettingsRow icon={Users} label="Manage Families" sub={families.length > 0 ? `${families.length} ${families.length === 1 ? "family" : "families"}` : "Organize profiles by family"} onPress={() => onNav("families")} last />
-        </SettingsCard>
-      </div>
-
-      {/* Profiles */}
-      <div>
-        <SectionLabel>Manage Profiles</SectionLabel>
-        <SettingsCard>
-          <SettingsRow icon={User} label="All Profiles" sub="Add, edit, or delete profiles" onPress={() => onNav("manage-profiles")} last />
+          <SettingsRow
+            icon={Users}
+            label="Manage Families"
+            sub={families.length > 0 ? `${families.length} ${families.length === 1 ? "family" : "families"}` : "Organize profiles by family"}
+            onPress={() => onNav("families")}
+            last
+          />
         </SettingsCard>
       </div>
 
@@ -863,13 +888,19 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
   const [pendingDeleteProfile, setPendingDeleteProfile] = useState<StoredProfile | null>(null);
   const pendingDeleteRef = useRef<string | null>(null);
   const [showAddProfile, setShowAddProfile] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   const push = (s: SettingsScreen) => { setScreenDir(1); setScreen(s); };
   const pop = () => { setScreenDir(-1); setScreen("main"); };
 
+  const handleEditProfile = (id: string) => {
+    setEditingProfileId(id);
+    push("edit-profile");
+  };
+
   const handleUpdateProfile = (patch: Partial<Pick<StoredProfile, "name" | "ageRange" | "userType">>) => {
-    if (!activeProfile) return;
-    updateProfile(activeProfile.id, patch);
+    if (!editingProfileId) return;
+    updateProfile(editingProfileId, patch);
     pop();
   };
 
@@ -921,12 +952,13 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
 
   const detailFamily = detailFamilyId ? families.find((f) => f.id === detailFamilyId) : null;
 
+  const editingProfile = editingProfileId ? profiles.find((p) => p.id === editingProfileId) ?? null : null;
+
   const screenTitle: Record<SettingsScreen, string> = {
     main: "Settings",
     "edit-profile": "Edit Profile",
     families: "Families",
     "family-detail": detailFamily?.name ?? "Family",
-    "manage-profiles": "Manage Profiles",
     privacy: "Privacy",
     about: "About",
   };
@@ -982,12 +1014,19 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
             {screen === "main" && (
               <MainScreen
                 activeProfile={activeProfile}
+                profiles={profiles}
                 families={families}
                 onNav={(s) => push(s)}
+                onEditProfile={handleEditProfile}
+                onDeleteRequest={(id) => {
+                  const p = profiles.find((x) => x.id === id);
+                  if (p) handleDeleteRequest(p);
+                }}
+                onAdd={() => setShowAddProfile(true)}
               />
             )}
-            {screen === "edit-profile" && activeProfile && (
-              <EditProfileScreen profile={activeProfile} onSave={handleUpdateProfile} />
+            {screen === "edit-profile" && editingProfile && (
+              <EditProfileScreen profile={editingProfile} onSave={handleUpdateProfile} />
             )}
             {screen === "families" && (
               <FamiliesScreen
@@ -1005,19 +1044,6 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
                 onDelete={() => { deleteFamily(detailFamily.id); setDetailFamilyId(null); pop(); }}
                 onAddProfile={(profileId) => addProfileToFamily(profileId, detailFamily.id)}
                 onRemoveProfile={(profileId) => removeProfileFromFamily(profileId)}
-              />
-            )}
-            {screen === "manage-profiles" && (
-              <ManageProfilesScreen
-                profiles={profiles}
-                activeId={activeProfile?.id ?? null}
-                pendingDeleteId={pendingDeleteProfile?.id ?? null}
-                onSwitch={(id) => { onSwitchProfile(id); }}
-                onDeleteRequest={(id) => {
-                  const p = profiles.find((x) => x.id === id);
-                  if (p) handleDeleteRequest(p);
-                }}
-                onAdd={() => setShowAddProfile(true)}
               />
             )}
             {screen === "privacy" && <PrivacyScreen />}

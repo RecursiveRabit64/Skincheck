@@ -145,13 +145,10 @@ function BackSilhouette() {
   return (
     <g fill="hsl(28 35% 89%)" stroke="hsl(28 20% 74%)" strokeWidth="0.6" style={{ pointerEvents: "none" }}>
       <ellipse cx="100" cy="42" rx="34" ry="40" />
-      <ellipse cx="100" cy="28" rx="34" ry="28" fill="hsl(28 28% 80%)" stroke="none" />
       <path d="M87,80 L113,80 Q116,108 116,124 Q100,129 84,124 Q84,108 87,80 Z" />
       <path d="M84,124 Q62,112 40,128 Q26,140 24,158 L76,158 Q74,144 76,136 Q80,130 84,124 Z" />
       <path d="M116,124 Q120,130 124,136 Q126,144 124,158 L176,158 Q174,140 160,128 Q138,112 116,124 Z" />
       <path d="M72,158 Q100,153 128,158 L124,264 Q100,269 76,264 Z" />
-      <ellipse cx="89" cy="178" rx="14" ry="20" fill="hsl(28 28% 83%)" stroke="none" />
-      <ellipse cx="111" cy="178" rx="14" ry="20" fill="hsl(28 28% 83%)" stroke="none" />
       <path d="M20,156 L48,156 L40,218 L12,216 Z" />
       <path d="M10,214 L40,214 L32,276 L2,272 Z" />
       <ellipse cx="16" cy="294" rx="13" ry="17" />

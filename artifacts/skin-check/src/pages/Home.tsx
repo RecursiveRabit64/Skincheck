@@ -13,7 +13,7 @@ import Settings from "@/pages/Settings";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Phase = "home" | "phase1" | "phase2" | "phase3" | "done";
+type Phase = "home" | "phase1" | "phase2" | "phase3" | "done" | "view";
 type ZoneSnapshot = Map<string, ZoneData>;
 
 // ── Condition Data ────────────────────────────────────────────────────────────
@@ -620,19 +620,25 @@ function Phase1({
       setInspectZone(id);
       return;
     }
+    const existing = zones.get(id);
+    if (existing && existing.condition !== currentCondition) {
+      // Zone already has a different condition — open tray to show it, don't replace
+      setActiveTrayZone(id);
+      return;
+    }
     setZones((prev) => {
       pushHistory(prev);
       const next = new Map(prev);
-      const existing = next.get(id);
-      if (existing && existing.condition === currentCondition) {
-        next.set(id, { ...existing, severity: existing.severity > 0 ? existing.severity : 3 });
+      const ex = next.get(id);
+      if (ex) {
+        next.set(id, { ...ex, severity: ex.severity > 0 ? ex.severity : 3 });
       } else {
         next.set(id, { condition: currentCondition, severity: 3 });
       }
       return next;
     });
     setActiveTrayZone(id);
-  }, [phase1Mode, currentCondition, pushHistory, setZones]);
+  }, [phase1Mode, currentCondition, zones, pushHistory, setZones]);
 
   const handleSeveritySelect = (severity: number) => {
     if (!activeTrayZone) return;
@@ -1049,11 +1055,13 @@ function Phase3({
   scratchScore,
   onSubmit,
   onBack,
+  readonly = false,
 }: {
   zones: ZoneSnapshot;
   scratchScore: number | null;
   onSubmit: () => void;
   onBack: () => void;
+  readonly?: boolean;
 }) {
   const conditionGroups = useMemo(() => {
     const groups = new Map<string, { zoneLabels: string[]; maxSeverity: number }>();
@@ -1085,8 +1093,8 @@ function Phase3({
       </div>
 
       <div className="px-4 mb-4">
-        <h2 className="text-xl font-bold">Review Your Check-In</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Here's a summary of today</p>
+        <h2 className="text-xl font-bold">{readonly ? "Today's Check-In" : "Review Your Check-In"}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">{readonly ? "Your recorded skin check for today" : "Here's a summary of today"}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
@@ -1125,12 +1133,18 @@ function Phase3({
         </div>
       </div>
 
-      {/* Submit button */}
+      {/* Submit / Done button */}
       <div className="px-4 pb-8 pt-2">
         <motion.div whileTap={{ scale: 0.97 }}>
-          <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-md" onClick={onSubmit}>
-            Submit Check-In ✓
-          </Button>
+          {readonly ? (
+            <Button variant="outline" className="w-full h-14 rounded-2xl text-base font-bold shadow-sm" onClick={onBack}>
+              Done
+            </Button>
+          ) : (
+            <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-md" onClick={onSubmit}>
+              Submit Check-In ✓
+            </Button>
+          )}
         </motion.div>
       </div>
     </div>
@@ -1229,8 +1243,7 @@ export default function Home() {
     });
     setZones(loadedZones);
     setScratchScore(todayReport.scratchScore ?? null);
-    setIsEditing(true);
-    goTo("phase1", 1);
+    goTo("view", 1);
   };
 
   const handleFinish = () => {
@@ -1307,6 +1320,18 @@ export default function Home() {
               scratchScore={scratchScore}
               onSubmit={handleFinish}
               onBack={() => goTo("phase2", -1)}
+            />
+          </motion.div>
+        )}
+
+        {phase === "view" && (
+          <motion.div key="view" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25, ease: "easeInOut" }}>
+            <Phase3
+              zones={zones}
+              scratchScore={scratchScore}
+              onSubmit={() => {}}
+              onBack={() => goTo("home", -1)}
+              readonly
             />
           </motion.div>
         )}
