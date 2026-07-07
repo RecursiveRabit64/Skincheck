@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import { ProfileProvider, useProfile, type StoredProfile } from "./context/ProfileContext";
+import { ProfileProvider, useProfile } from "./context/ProfileContext";
 import { CheckInProvider, useCheckIn } from "./context/CheckInContext";
 import Home from "@/pages/Home";
 import Onboarding from "@/pages/Onboarding";
@@ -13,11 +13,13 @@ import { useCallback } from "react";
 const queryClient = new QueryClient();
 
 function LastDeleteUndoToast({
-  profile,
+  label,
+  toastKey,
   onUndo,
   onExpire,
 }: {
-  profile: StoredProfile;
+  label: string;
+  toastKey: string;
   onUndo: () => void;
   onExpire: () => void;
 }) {
@@ -31,7 +33,7 @@ function LastDeleteUndoToast({
     >
       <div className="relative bg-foreground text-background rounded-2xl shadow-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3.5">
-          <span className="text-sm flex-1 font-medium">Deleted &ldquo;{profile.name}&rdquo;</span>
+          <span className="text-sm flex-1 font-medium">{label}</span>
           <button
             onClick={onUndo}
             className="text-sm font-bold text-primary-foreground/90 hover:text-primary-foreground shrink-0 px-1"
@@ -40,7 +42,7 @@ function LastDeleteUndoToast({
           </button>
         </div>
         <motion.div
-          key={profile.id}
+          key={toastKey}
           initial={{ scaleX: 1 }}
           animate={{ scaleX: 0 }}
           transition={{ duration: 5, ease: "linear" }}
@@ -56,27 +58,36 @@ function LastDeleteUndoToast({
 function AppShell() {
   const {
     profiles,
-    pendingLastDeleteId,
+    pendingLastDeleteIds,
     cancelPendingLastDelete,
     removeProfile,
   } = useProfile();
   const { deleteReportsForProfile } = useCheckIn();
 
-  const pendingProfile = pendingLastDeleteId
-    ? profiles.find((p) => p.id === pendingLastDeleteId) ?? null
-    : null;
-
-  const showOnboarding = profiles.length === 0 || pendingLastDeleteId !== null;
+  const showOnboarding = profiles.length === 0 || pendingLastDeleteIds.length > 0;
 
   const handleExpire = useCallback(() => {
-    if (!pendingLastDeleteId) return;
-    removeProfile(pendingLastDeleteId);
-    deleteReportsForProfile(pendingLastDeleteId);
-  }, [pendingLastDeleteId, removeProfile, deleteReportsForProfile]);
+    if (pendingLastDeleteIds.length === 0) return;
+    pendingLastDeleteIds.forEach((id) => {
+      removeProfile(id);
+      deleteReportsForProfile(id);
+    });
+  }, [pendingLastDeleteIds, removeProfile, deleteReportsForProfile]);
 
   const handleUndo = useCallback(() => {
     cancelPendingLastDelete();
   }, [cancelPendingLastDelete]);
+
+  const pendingNames = pendingLastDeleteIds
+    .map((id) => profiles.find((p) => p.id === id)?.name)
+    .filter(Boolean) as string[];
+
+  const toastLabel =
+    pendingNames.length === 1
+      ? `Deleted \u201c${pendingNames[0]}\u201d`
+      : `Deleted ${pendingLastDeleteIds.length} profiles`;
+
+  const toastKey = pendingLastDeleteIds.join(",");
 
   return (
     <>
@@ -92,10 +103,11 @@ function AppShell() {
       )}
 
       <AnimatePresence>
-        {pendingProfile && (
+        {pendingLastDeleteIds.length > 0 && (
           <LastDeleteUndoToast
-            key={pendingProfile.id}
-            profile={pendingProfile}
+            key={toastKey}
+            label={toastLabel}
+            toastKey={toastKey}
             onUndo={handleUndo}
             onExpire={handleExpire}
           />

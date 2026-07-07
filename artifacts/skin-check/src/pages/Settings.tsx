@@ -224,6 +224,54 @@ function DeleteConfirmDialog({
   );
 }
 
+// ── Batch Delete Confirm Dialog ───────────────────────────────────────────────
+
+function BatchDeleteConfirmDialog({
+  count,
+  onConfirm,
+  onCancel,
+}: {
+  count: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9990] flex items-end justify-center bg-black/40 backdrop-blur-sm px-4 pb-8"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ duration: 0.22 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm bg-background rounded-3xl p-6 flex flex-col gap-4 shadow-2xl"
+      >
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-bold text-foreground">
+            Delete {count} {count === 1 ? "profile" : "profiles"}?
+          </h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            All skin history and reports for {count === 1 ? "this profile" : "these profiles"} will be removed. This can be undone for a few seconds.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant="destructive" className="flex-1 h-12 rounded-xl" onClick={onConfirm}>
+            Delete {count === 1 ? "Profile" : `${count} Profiles`}
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 function MainScreen({
@@ -233,6 +281,7 @@ function MainScreen({
   onNav,
   onEditProfile,
   onDeleteRequest,
+  onBatchDeleteRequest,
   onAdd,
 }: {
   activeProfile: StoredProfile | null;
@@ -241,21 +290,88 @@ function MainScreen({
   onNav: (screen: SettingsScreen) => void;
   onEditProfile: (id: string) => void;
   onDeleteRequest: (id: string) => void;
+  onBatchDeleteRequest: (ids: string[]) => void;
   onAdd: () => void;
 }) {
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const allSelected = profiles.length > 0 && selectedIds.size === profiles.length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(profiles.map((p) => p.id)));
+  };
+
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* Profiles — highest priority section */}
       <div>
-        <SectionLabel>Profiles</SectionLabel>
+        <div className="flex items-center justify-between mb-1 px-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Profiles</p>
+          {profiles.length > 0 && (
+            selectMode ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleAll}
+                  className="text-xs font-semibold text-primary"
+                >
+                  {allSelected ? "Deselect All" : "Select All"}
+                </button>
+                <button onClick={exitSelect} className="text-xs font-semibold text-muted-foreground">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="text-xs font-semibold text-primary"
+              >
+                Select
+              </button>
+            )
+          )}
+        </div>
+
         <SettingsCard>
           {profiles.map((p, i) => {
             const Icon = TYPE_ICON[p.userType];
             const isActive = p.id === activeProfile?.id;
+            const isSelected = selectedIds.has(p.id);
             return (
               <div key={p.id}>
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  <ProfileAvatar profile={p} />
+                <div
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3.5 transition-colors",
+                    selectMode && "cursor-pointer active:bg-muted/40",
+                    selectMode && isSelected && "bg-primary/5"
+                  )}
+                  onClick={selectMode ? () => toggleSelect(p.id) : undefined}
+                >
+                  {selectMode ? (
+                    <div className={cn(
+                      "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                      isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"
+                    )}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  ) : (
+                    <ProfileAvatar profile={p} />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
@@ -270,35 +386,58 @@ function MainScreen({
                       {TYPE_LABEL[p.userType]} · {p.ageRange}
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => onEditProfile(p.id)}
-                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => onDeleteRequest(p.id)}
-                      className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </motion.button>
-                  </div>
+                  {!selectMode && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => onEditProfile(p.id)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => onDeleteRequest(p.id)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
                 {i < profiles.length - 1 && <div className="h-px bg-border mx-4" />}
               </div>
             );
           })}
         </SettingsCard>
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={onAdd}
-          className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-muted/20 hover:border-primary/30 hover:text-foreground transition-all"
-        >
-          <Plus className="w-4 h-4" /> Add Profile
-        </motion.button>
+
+        {selectMode && selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            className="mt-2"
+          >
+            <Button
+              variant="destructive"
+              className="w-full h-11 rounded-2xl font-semibold"
+              onClick={() => onBatchDeleteRequest(Array.from(selectedIds))}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete {selectedIds.size} {selectedIds.size === 1 ? "Profile" : "Profiles"}
+            </Button>
+          </motion.div>
+        )}
+
+        {!selectMode && (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={onAdd}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:bg-muted/20 hover:border-primary/30 hover:text-foreground transition-all"
+          >
+            <Plus className="w-4 h-4" /> Add Profile
+          </motion.button>
+        )}
       </div>
 
       {/* Families */}
@@ -889,6 +1028,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
   const pendingDeleteRef = useRef<string | null>(null);
   const [showAddProfile, setShowAddProfile] = useState(false);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [batchDeleteConfirmIds, setBatchDeleteConfirmIds] = useState<string[] | null>(null);
 
   const push = (s: SettingsScreen) => { setScreenDir(1); setScreen(s); };
   const pop = () => { setScreenDir(-1); setScreen("main"); };
@@ -917,7 +1057,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
 
     if (remaining.length === 0) {
       // Last profile — mark as pending so App-level toast + Onboarding show with undo
-      setPendingLastDelete(profileToDelete.id);
+      setPendingLastDelete([profileToDelete.id]);
       onClose();
       return;
     }
@@ -944,6 +1084,33 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     pendingDeleteRef.current = null;
     setPendingDeleteProfile(null);
   }, [removeProfile, deleteReportsForProfile]);
+
+  const handleBatchDeleteRequest = useCallback((ids: string[]) => {
+    setBatchDeleteConfirmIds(ids);
+  }, []);
+
+  const handleBatchDeleteConfirm = useCallback(() => {
+    if (!batchDeleteConfirmIds || batchDeleteConfirmIds.length === 0) return;
+    const ids = batchDeleteConfirmIds;
+    setBatchDeleteConfirmIds(null);
+
+    const remaining = profiles.filter((p) => !ids.includes(p.id));
+    if (remaining.length === 0) {
+      // All profiles deleted — show App-level Onboarding + undo toast
+      setPendingLastDelete(ids);
+      onClose();
+      return;
+    }
+    // Some profiles remain — delete immediately (confirmation dialog was the guard)
+    ids.forEach((id) => {
+      removeProfile(id);
+      deleteReportsForProfile(id);
+    });
+    // Switch active if it was deleted
+    if (activeProfile && ids.includes(activeProfile.id)) {
+      onSwitchProfile(remaining[0].id);
+    }
+  }, [batchDeleteConfirmIds, profiles, activeProfile, setPendingLastDelete, removeProfile, deleteReportsForProfile, onSwitchProfile, onClose]);
 
   const handleCreateFamily = (name: string) => {
     addFamily(name);
@@ -1022,6 +1189,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
                   const p = profiles.find((x) => x.id === id);
                   if (p) handleDeleteRequest(p);
                 }}
+                onBatchDeleteRequest={handleBatchDeleteRequest}
                 onAdd={() => setShowAddProfile(true)}
               />
             )}
@@ -1052,13 +1220,24 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
         </AnimatePresence>
       </div>
 
-      {/* Delete confirmation */}
+      {/* Single delete confirmation */}
       <AnimatePresence>
         {deleteConfirmProfile && (
           <DeleteConfirmDialog
             profile={deleteConfirmProfile}
             onConfirm={handleDeleteConfirm}
             onCancel={() => setDeleteConfirmProfile(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Batch delete confirmation */}
+      <AnimatePresence>
+        {batchDeleteConfirmIds && batchDeleteConfirmIds.length > 0 && (
+          <BatchDeleteConfirmDialog
+            count={batchDeleteConfirmIds.length}
+            onConfirm={handleBatchDeleteConfirm}
+            onCancel={() => setBatchDeleteConfirmIds(null)}
           />
         )}
       </AnimatePresence>
