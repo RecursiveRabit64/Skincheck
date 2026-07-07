@@ -22,76 +22,158 @@ interface ZoneDef {
   id: string;
   d: string;
   label: string;
+  cx?: number; // center x for medication dot
+  cy?: number; // center y for medication dot
 }
 
+// ── Path helpers ──────────────────────────────────────────────────────────────
+
+/** Rounded rectangle as SVG path. r is clamped to half the shorter side. */
+function rr(x: number, y: number, w: number, h: number, r: number): string {
+  const r2 = Math.min(r, w / 2, h / 2);
+  return [
+    `M ${x + r2},${y}`,
+    `H ${x + w - r2}`,
+    `Q ${x + w},${y} ${x + w},${y + r2}`,
+    `V ${y + h - r2}`,
+    `Q ${x + w},${y + h} ${x + w - r2},${y + h}`,
+    `H ${x + r2}`,
+    `Q ${x},${y + h} ${x},${y + h - r2}`,
+    `V ${y + r2}`,
+    `Q ${x},${y} ${x + r2},${y}`,
+    `Z`,
+  ].join(" ");
+}
+
+/** Ellipse as SVG path. */
+function el(cx: number, cy: number, rx: number, ry: number): string {
+  return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 1 ${cx + rx},${cy} A ${rx},${ry} 0 0 1 ${cx - rx},${cy} Z`;
+}
+
+// ── Zone definitions ──────────────────────────────────────────────────────────
+//
+// Layout (viewBox 0 0 200 490):
+//   Head cy=42  ·  Neck y=99  ·  Shoulders cy=140
+//   Chest y=128  ·  Abdomen y=183
+//   Upper arms y=138  ·  Elbows cy=200  ·  Forearms y=209
+//   Wrists cy=267  ·  Hands cy=285
+//   Thighs y=257  ·  Knees cy=340  ·  Shins y=349
+//   Ankles cy=436  ·  Feet cy=455
+
 export const frontZonesDef: ZoneDef[] = [
-  // Face
-  { id: "scalp",             d: "M70,8 Q100,-2 130,8 Q134,28 100,36 Q66,28 70,8 Z",                                     label: "Scalp" },
-  { id: "forehead",          d: "M68,30 Q100,22 132,30 Q130,54 100,58 Q70,54 68,30 Z",                                   label: "Forehead" },
-  { id: "left_ear",          d: "M60,54 Q50,57 50,68 Q50,79 60,82 Q67,77 66,68 Q66,58 60,54 Z",                         label: "Left Ear" },
-  { id: "right_ear",         d: "M140,54 Q150,57 150,68 Q150,79 140,82 Q133,77 134,68 Q134,58 140,54 Z",                label: "Right Ear" },
-  { id: "left_cheek",        d: "M68,52 Q60,70 74,86 Q88,78 90,62 Q80,50 68,52 Z",                                      label: "Left Cheek" },
-  { id: "right_cheek",       d: "M132,52 Q140,70 126,86 Q112,78 110,62 Q120,50 132,52 Z",                               label: "Right Cheek" },
-  { id: "nose",              d: "M93,52 Q100,46 107,52 Q110,66 107,74 Q100,78 93,74 Q90,66 93,52 Z",                    label: "Nose" },
-  { id: "lips",              d: "M86,76 Q93,70 100,74 Q107,70 114,76 Q111,90 100,93 Q89,90 86,76 Z",                    label: "Lips" },
-  { id: "chin",              d: "M84,88 Q100,102 116,88 Q112,107 100,110 Q88,107 84,88 Z",                               label: "Chin" },
-  { id: "neck",              d: "M87,99 L113,99 Q116,118 116,124 Q100,128 84,124 Q84,118 87,99 Z",                       label: "Neck" },
-  // Upper body
-  { id: "left_shoulder",     d: "M84,124 Q62,112 40,128 Q26,140 26,158 L76,158 Q74,144 76,136 Q82,130 84,124 Z",        label: "Left Shoulder" },
-  { id: "right_shoulder",    d: "M116,124 Q118,130 124,136 Q126,144 124,158 L174,158 Q174,140 160,128 Q138,112 116,124 Z", label: "Right Shoulder" },
-  { id: "chest",             d: "M74,158 Q100,154 126,158 L122,212 Q100,216 78,212 Z",                                   label: "Chest" },
-  { id: "abdomen",           d: "M78,212 Q100,216 122,212 L120,262 Q100,267 80,262 Z",                                   label: "Abdomen" },
-  // Arms (front)
-  { id: "left_upper_arm",    d: "M22,156 L48,156 L40,216 L14,216 Z",                                                     label: "Left Upper Arm" },
-  { id: "right_upper_arm",   d: "M152,156 L178,156 L186,216 L160,216 Z",                                                 label: "Right Upper Arm" },
-  { id: "left_forearm",      d: "M12,214 L40,214 L32,274 L4,272 Z",                                                      label: "Left Forearm" },
-  { id: "right_forearm",     d: "M160,214 L188,214 L196,272 L168,274 Z",                                                 label: "Right Forearm" },
-  { id: "left_wrist",        d: "M4,270 L32,270 L30,286 L2,284 Z",                                                       label: "Left Wrist" },
-  { id: "right_wrist",       d: "M168,270 L196,270 L198,284 L170,286 Z",                                                 label: "Right Wrist" },
-  { id: "left_hand",         d: "M2,284 L30,284 L26,310 L0,308 Z",                                                       label: "Left Hand" },
-  { id: "right_hand",        d: "M170,284 L198,284 L200,308 L172,310 Z",                                                 label: "Right Hand" },
-  // Lower body (front)
-  { id: "left_inner_thigh",  d: "M80,262 L102,262 L100,334 L82,336 Z",                                                   label: "Left Inner Thigh" },
-  { id: "right_inner_thigh", d: "M98,262 L120,262 L118,336 L100,334 Z",                                                  label: "Right Inner Thigh" },
-  { id: "left_thigh",        d: "M64,262 L82,262 L80,336 L62,338 Z",                                                     label: "Left Thigh" },
-  { id: "right_thigh",       d: "M118,262 L134,262 L136,338 L118,336 Z",                                                 label: "Right Thigh" },
-  { id: "left_knee",         d: "M60,336 L86,334 L86,360 L60,362 Z",                                                     label: "Left Knee" },
-  { id: "right_knee",        d: "M114,334 L140,336 L140,362 L114,360 Z",                                                 label: "Right Knee" },
-  { id: "left_shin",         d: "M58,360 L86,358 L84,450 L58,454 Z",                                                     label: "Left Shin" },
-  { id: "right_shin",        d: "M114,358 L140,360 L142,454 L116,450 Z",                                                 label: "Right Shin" },
-  { id: "left_ankle",        d: "M56,452 L84,450 L82,466 L54,468 Z",                                                     label: "Left Ankle" },
-  { id: "right_ankle",       d: "M116,450 L142,452 L144,468 L118,466 Z",                                                 label: "Right Ankle" },
-  { id: "left_foot",         d: "M48,466 L82,462 L80,490 L44,490 Z",                                                     label: "Left Foot" },
-  { id: "right_foot",        d: "M118,462 L152,466 L156,490 L120,490 Z",                                                 label: "Right Foot" },
+  // ── Face (kept as organic paths to match head ellipse) ───────────────────
+  { id: "scalp",            d: "M70,8 Q100,-2 130,8 Q134,28 100,36 Q66,28 70,8 Z",                                   label: "Scalp",         cx: 100, cy: 18 },
+  { id: "forehead",         d: "M68,30 Q100,22 132,30 Q130,54 100,58 Q70,54 68,30 Z",                                label: "Forehead",      cx: 100, cy: 40 },
+  { id: "left_ear",         d: "M60,54 Q50,57 50,68 Q50,79 60,82 Q67,77 66,68 Q66,58 60,54 Z",                      label: "Left Ear",      cx: 53, cy: 68 },
+  { id: "right_ear",        d: "M140,54 Q150,57 150,68 Q150,79 140,82 Q133,77 134,68 Q134,58 140,54 Z",             label: "Right Ear",     cx: 147, cy: 68 },
+  { id: "left_cheek",       d: "M68,52 Q60,70 74,86 Q88,78 90,62 Q80,50 68,52 Z",                                   label: "Left Cheek",    cx: 74, cy: 68 },
+  { id: "right_cheek",      d: "M132,52 Q140,70 126,86 Q112,78 110,62 Q120,50 132,52 Z",                            label: "Right Cheek",   cx: 126, cy: 68 },
+  { id: "nose",             d: "M93,52 Q100,46 107,52 Q110,66 107,74 Q100,78 93,74 Q90,66 93,52 Z",                 label: "Nose",          cx: 100, cy: 62 },
+  { id: "lips",             d: "M86,76 Q93,70 100,74 Q107,70 114,76 Q111,90 100,93 Q89,90 86,76 Z",                 label: "Lips",          cx: 100, cy: 82 },
+  { id: "chin",             d: "M84,88 Q100,102 116,88 Q112,107 100,110 Q88,107 84,88 Z",                            label: "Chin",          cx: 100, cy: 98 },
+
+  // ── Neck ─────────────────────────────────────────────────────────────────
+  // rr(90,99,20,26,10) — pill shape
+  { id: "neck",             d: rr(90, 99, 20, 26, 10),   label: "Neck",                cx: 100, cy: 112 },
+
+  // ── Shoulders ─────────────────────────────────────────────────────────────
+  // el(60,140,26,20) and el(140,140,26,20)
+  { id: "left_shoulder",    d: el(60, 140, 26, 20),       label: "Left Shoulder",       cx: 60,  cy: 140 },
+  { id: "right_shoulder",   d: el(140, 140, 26, 20),      label: "Right Shoulder",      cx: 140, cy: 140 },
+
+  // ── Torso ─────────────────────────────────────────────────────────────────
+  // rr(77,128,46,52,14) — chest
+  { id: "chest",            d: rr(77, 128, 46, 52, 14),   label: "Chest",               cx: 100, cy: 154 },
+  // rr(79,183,42,48,12) — abdomen
+  { id: "abdomen",          d: rr(79, 183, 42, 48, 12),   label: "Abdomen",             cx: 100, cy: 207 },
+
+  // ── Arms — left ───────────────────────────────────────────────────────────
+  // rr(18,138,24,56,12) — upper arm pill
+  { id: "left_upper_arm",   d: rr(18, 138, 24, 56, 12),   label: "Left Upper Arm",      cx: 30, cy: 166 },
+  // el(30,200,14,11) — elbow oval
+  { id: "left_forearm",     d: rr(18, 209, 24, 52, 12),   label: "Left Forearm",        cx: 30, cy: 235 },
+  { id: "left_wrist",       d: el(30, 267, 13, 8),         label: "Left Wrist",          cx: 30, cy: 267 },
+  { id: "left_hand",        d: el(30, 285, 15, 17),        label: "Left Hand",           cx: 30, cy: 285 },
+
+  // ── Arms — right ──────────────────────────────────────────────────────────
+  { id: "right_upper_arm",  d: rr(158, 138, 24, 56, 12),  label: "Right Upper Arm",     cx: 170, cy: 166 },
+  { id: "right_forearm",    d: rr(158, 209, 24, 52, 12),  label: "Right Forearm",       cx: 170, cy: 235 },
+  { id: "right_wrist",      d: el(170, 267, 13, 8),        label: "Right Wrist",         cx: 170, cy: 267 },
+  { id: "right_hand",       d: el(170, 285, 15, 17),       label: "Right Hand",          cx: 170, cy: 285 },
+
+  // ── Thighs — front view split into inner/outer strips ────────────────────
+  // Left leg: x 68-80 outer (left_thigh), x 80-92 inner (left_inner_thigh)
+  { id: "left_thigh",       d: rr(68, 257, 12, 76, 6),    label: "Left Thigh",          cx: 74,  cy: 295 },
+  { id: "left_inner_thigh", d: rr(80, 257, 12, 76, 6),    label: "Left Inner Thigh",    cx: 86,  cy: 295 },
+  // Right leg: x 108-120 inner (right_inner_thigh), x 120-132 outer (right_thigh)
+  { id: "right_inner_thigh",d: rr(108, 257, 12, 76, 6),   label: "Right Inner Thigh",   cx: 114, cy: 295 },
+  { id: "right_thigh",      d: rr(120, 257, 12, 76, 6),   label: "Right Thigh",         cx: 126, cy: 295 },
+
+  // ── Knees ─────────────────────────────────────────────────────────────────
+  { id: "left_knee",        d: el(80, 340, 14, 11),        label: "Left Knee",           cx: 80,  cy: 340 },
+  { id: "right_knee",       d: el(120, 340, 14, 11),       label: "Right Knee",          cx: 120, cy: 340 },
+
+  // ── Shins ─────────────────────────────────────────────────────────────────
+  // rr(68,349,24,80,12) — shin pill
+  { id: "left_shin",        d: rr(68, 349, 24, 80, 12),    label: "Left Shin",           cx: 80,  cy: 389 },
+  { id: "right_shin",       d: rr(108, 349, 24, 80, 12),   label: "Right Shin",          cx: 120, cy: 389 },
+
+  // ── Ankles ────────────────────────────────────────────────────────────────
+  { id: "left_ankle",       d: el(80, 436, 14, 8),          label: "Left Ankle",          cx: 80,  cy: 436 },
+  { id: "right_ankle",      d: el(120, 436, 14, 8),         label: "Right Ankle",         cx: 120, cy: 436 },
+
+  // ── Feet ──────────────────────────────────────────────────────────────────
+  { id: "left_foot",        d: el(73, 455, 22, 13),         label: "Left Foot",           cx: 73,  cy: 455 },
+  { id: "right_foot",       d: el(127, 455, 22, 13),        label: "Right Foot",          cx: 127, cy: 455 },
 ];
 
 export const backZonesDef: ZoneDef[] = [
-  { id: "occipital",              d: "M70,8 Q100,-2 130,8 Q134,28 100,36 Q66,28 70,8 Z",                                 label: "Back of Head" },
-  { id: "nape",                   d: "M87,99 L113,99 Q116,118 116,124 Q100,128 84,124 Q84,118 87,99 Z",                  label: "Nape of Neck" },
-  { id: "upper_back",             d: "M76,158 Q100,154 124,158 L122,212 Q100,216 78,212 Z",                              label: "Upper Back" },
-  { id: "lower_back",             d: "M78,212 Q100,216 122,212 L120,262 Q100,266 80,262 Z",                              label: "Lower Back" },
-  { id: "left_shoulder_back",     d: "M84,124 Q62,112 40,128 Q26,140 26,158 L76,158 Q74,144 76,136 Q82,130 84,124 Z",   label: "Left Shoulder (Back)" },
-  { id: "right_shoulder_back",    d: "M116,124 Q118,130 124,136 Q126,144 124,158 L174,158 Q174,140 160,128 Q138,112 116,124 Z", label: "Right Shoulder (Back)" },
-  { id: "left_buttock",           d: "M80,262 L102,262 L100,324 L70,322 Z",                                              label: "Left Buttock" },
-  { id: "right_buttock",          d: "M98,262 L120,262 L130,322 L100,324 Z",                                             label: "Right Buttock" },
-  { id: "back_left_upper_arm",    d: "M22,156 L48,156 L40,216 L14,216 Z",                                                label: "Back of Left Upper Arm" },
-  { id: "back_right_upper_arm",   d: "M152,156 L178,156 L186,216 L160,216 Z",                                            label: "Back of Right Upper Arm" },
-  { id: "left_inner_elbow",       d: "M12,214 L40,214 L38,230 L10,228 Z",                                                label: "Left Elbow" },
-  { id: "right_inner_elbow",      d: "M160,214 L188,214 L190,230 L162,228 Z",                                            label: "Right Elbow" },
-  { id: "back_left_forearm",      d: "M10,228 L38,228 L30,274 L4,270 Z",                                                 label: "Back of Left Forearm" },
-  { id: "back_right_forearm",     d: "M162,228 L190,228 L196,270 L168,274 Z",                                            label: "Back of Right Forearm" },
-  { id: "back_left_wrist",        d: "M4,270 L30,272 L28,286 L2,284 Z",                                                  label: "Left Wrist (Back)" },
-  { id: "back_right_wrist",       d: "M168,272 L196,270 L198,284 L170,286 Z",                                            label: "Right Wrist (Back)" },
-  { id: "back_left_hand",         d: "M2,284 L28,284 L24,310 L0,308 Z",                                                  label: "Back of Left Hand" },
-  { id: "back_right_hand",        d: "M170,284 L198,284 L200,308 L172,310 Z",                                            label: "Back of Right Hand" },
-  { id: "back_left_thigh",        d: "M66,322 L100,322 L96,376 L62,380 Z",                                               label: "Back of Left Thigh" },
-  { id: "back_right_thigh",       d: "M100,322 L134,322 L138,380 L104,376 Z",                                            label: "Back of Right Thigh" },
-  { id: "left_back_knee",         d: "M60,378 L96,374 L94,400 L58,404 Z",                                                label: "Back of Left Knee" },
-  { id: "right_back_knee",        d: "M104,374 L140,378 L142,404 L106,400 Z",                                            label: "Back of Right Knee" },
-  { id: "left_calf",              d: "M56,402 L94,398 L90,456 L54,460 Z",                                                label: "Left Calf" },
-  { id: "right_calf",             d: "M106,398 L142,402 L146,460 L110,456 Z",                                            label: "Right Calf" },
-  { id: "left_heel",              d: "M50,458 L88,454 L86,484 L48,484 Z",                                                label: "Left Heel" },
-  { id: "right_heel",             d: "M112,454 L150,458 L152,484 L110,484 Z",                                            label: "Right Heel" },
+  // ── Head / neck (back) ───────────────────────────────────────────────────
+  { id: "occipital",             d: "M70,8 Q100,-2 130,8 Q134,28 100,36 Q66,28 70,8 Z",    label: "Back of Head",        cx: 100, cy: 18 },
+  { id: "nape",                  d: rr(90, 99, 20, 26, 10),                                  label: "Nape of Neck",        cx: 100, cy: 112 },
+
+  // ── Torso (back) ─────────────────────────────────────────────────────────
+  { id: "left_shoulder_back",    d: el(60, 140, 26, 20),                                     label: "Left Shoulder (Back)",  cx: 60,  cy: 140 },
+  { id: "right_shoulder_back",   d: el(140, 140, 26, 20),                                    label: "Right Shoulder (Back)", cx: 140, cy: 140 },
+  { id: "upper_back",            d: rr(77, 128, 46, 52, 14),                                 label: "Upper Back",          cx: 100, cy: 154 },
+  { id: "lower_back",            d: rr(79, 183, 42, 48, 12),                                 label: "Lower Back",          cx: 100, cy: 207 },
+
+  // ── Arms — back left ─────────────────────────────────────────────────────
+  { id: "back_left_upper_arm",   d: rr(18, 138, 24, 56, 12),                                 label: "Back of Left Upper Arm", cx: 30, cy: 166 },
+  { id: "left_inner_elbow",      d: el(30, 200, 14, 11),                                     label: "Left Elbow",          cx: 30, cy: 200 },
+  { id: "back_left_forearm",     d: rr(18, 209, 24, 52, 12),                                 label: "Back of Left Forearm", cx: 30, cy: 235 },
+  { id: "back_left_wrist",       d: el(30, 267, 13, 8),                                      label: "Left Wrist (Back)",   cx: 30, cy: 267 },
+  { id: "back_left_hand",        d: el(30, 285, 15, 17),                                     label: "Back of Left Hand",   cx: 30, cy: 285 },
+
+  // ── Arms — back right ────────────────────────────────────────────────────
+  { id: "back_right_upper_arm",  d: rr(158, 138, 24, 56, 12),                                label: "Back of Right Upper Arm", cx: 170, cy: 166 },
+  { id: "right_inner_elbow",     d: el(170, 200, 14, 11),                                    label: "Right Elbow",         cx: 170, cy: 200 },
+  { id: "back_right_forearm",    d: rr(158, 209, 24, 52, 12),                                label: "Back of Right Forearm", cx: 170, cy: 235 },
+  { id: "back_right_wrist",      d: el(170, 267, 13, 8),                                     label: "Right Wrist (Back)",  cx: 170, cy: 267 },
+  { id: "back_right_hand",       d: el(170, 285, 15, 17),                                    label: "Back of Right Hand",  cx: 170, cy: 285 },
+
+  // ── Buttocks ─────────────────────────────────────────────────────────────
+  // rr(68,234,24,46,12)
+  { id: "left_buttock",          d: rr(68, 234, 24, 46, 12),                                 label: "Left Buttock",        cx: 80,  cy: 257 },
+  { id: "right_buttock",         d: rr(108, 234, 24, 46, 12),                                label: "Right Buttock",       cx: 120, cy: 257 },
+
+  // ── Thighs (back — full width, no inner split) ───────────────────────────
+  // rr(68,284,24,62,12)
+  { id: "back_left_thigh",       d: rr(68, 284, 24, 62, 12),                                 label: "Back of Left Thigh",  cx: 80,  cy: 315 },
+  { id: "back_right_thigh",      d: rr(108, 284, 24, 62, 12),                                label: "Back of Right Thigh", cx: 120, cy: 315 },
+
+  // ── Knees (back) ─────────────────────────────────────────────────────────
+  { id: "left_back_knee",        d: el(80, 353, 14, 11),                                     label: "Back of Left Knee",   cx: 80,  cy: 353 },
+  { id: "right_back_knee",       d: el(120, 353, 14, 11),                                    label: "Back of Right Knee",  cx: 120, cy: 353 },
+
+  // ── Calves ───────────────────────────────────────────────────────────────
+  // rr(68,362,24,80,12)
+  { id: "left_calf",             d: rr(68, 362, 24, 80, 12),                                 label: "Left Calf",           cx: 80,  cy: 402 },
+  { id: "right_calf",            d: rr(108, 362, 24, 80, 12),                                label: "Right Calf",          cx: 120, cy: 402 },
+
+  // ── Heels ────────────────────────────────────────────────────────────────
+  { id: "left_heel",             d: el(73, 455, 22, 13),                                     label: "Left Heel",           cx: 73,  cy: 455 },
+  { id: "right_heel",            d: el(127, 455, 22, 13),                                    label: "Right Heel",          cx: 127, cy: 455 },
 ];
 
 export const zonesDef: ZoneDef[] = [...frontZonesDef, ...backZonesDef];
@@ -99,10 +181,10 @@ export const zonesDef: ZoneDef[] = [...frontZonesDef, ...backZonesDef];
 // ── Severity → color ──────────────────────────────────────────────────────────
 
 function zoneColors(severity: number): { fill: string; stroke: string } {
-  if (severity <= 0) return { fill: "transparent", stroke: "rgba(130,85,60,0.38)" };
-  if (severity <= 4) return { fill: "rgba(234,179,8,0.45)",  stroke: "rgba(150,108,0,0.65)"  };
-  if (severity <= 7) return { fill: "rgba(249,115,22,0.50)", stroke: "rgba(170,70,0,0.65)"   };
-  return              { fill: "rgba(239,68,68,0.65)",  stroke: "rgba(175,35,35,0.70)" };
+  if (severity <= 0) return { fill: "transparent", stroke: "rgba(130,85,60,0.35)" };
+  if (severity <= 4) return { fill: "rgba(234,179,8,0.42)",  stroke: "rgba(150,108,0,0.60)"  };
+  if (severity <= 7) return { fill: "rgba(249,115,22,0.48)", stroke: "rgba(170,70,0,0.62)"   };
+  return              { fill: "rgba(239,68,68,0.62)",  stroke: "rgba(175,35,35,0.70)" };
 }
 
 function sevLabel(severity: number): string {
@@ -113,55 +195,116 @@ function sevLabel(severity: number): string {
 }
 
 // ── Silhouettes ───────────────────────────────────────────────────────────────
+//
+// Each body segment is a <rect rx> (pill/capsule) or <ellipse>.
+// Small gaps between segments give the separated-joint look.
+// Joint connectors (elbows, knees, wrists, ankles) are oval shapes.
+
+const SKIN  = "hsl(28 35% 89%)";
+const LINE  = "hsl(28 20% 74%)";
+const JOINT = "hsl(28 30% 84%)"; // slightly different shade for joint ovals
 
 function FrontSilhouette() {
   return (
-    <g fill="hsl(28 35% 89%)" stroke="hsl(28 20% 74%)" strokeWidth="0.6" style={{ pointerEvents: "none" }}>
-      <ellipse cx="100" cy="42" rx="34" ry="40" />
-      <ellipse cx="63" cy="53" rx="8" ry="12" />
-      <ellipse cx="137" cy="53" rx="8" ry="12" />
-      <path d="M87,80 L113,80 Q116,108 116,124 Q100,129 84,124 Q84,108 87,80 Z" />
-      <path d="M84,124 Q62,112 40,128 Q26,140 24,158 L76,158 Q74,144 76,136 Q80,130 84,124 Z" />
-      <path d="M116,124 Q120,130 124,136 Q126,144 124,158 L176,158 Q174,140 160,128 Q138,112 116,124 Z" />
-      <path d="M72,158 Q100,153 128,158 L124,264 Q100,269 76,264 Z" />
-      <path d="M20,156 L48,156 L40,218 L12,216 Z" />
-      <path d="M10,214 L40,214 L32,276 L2,272 Z" />
-      <ellipse cx="16" cy="294" rx="13" ry="17" />
-      <path d="M152,156 L180,156 L188,218 L160,218 Z" />
-      <path d="M160,214 L190,214 L198,272 L168,276 Z" />
-      <ellipse cx="184" cy="294" rx="13" ry="17" />
-      <path d="M76,264 Q100,260 124,264 L132,300 Q100,305 68,300 Z" />
-      <path d="M64,298 L104,298 L100,340 L60,344 Z" />
-      <path d="M58,342 L100,338 L96,456 L54,460 Z" />
-      <ellipse cx="72" cy="474" rx="22" ry="13" />
-      <path d="M96,298 L136,298 L140,344 L100,340 Z" />
-      <path d="M100,338 L142,342 L146,460 L104,456 Z" />
-      <ellipse cx="128" cy="474" rx="22" ry="13" />
+    <g stroke={LINE} strokeWidth="0.8" style={{ pointerEvents: "none" }}>
+      {/* ── Head + ears ── */}
+      <ellipse fill={SKIN} cx="100" cy="42" rx="30" ry="34" />
+      <ellipse fill={SKIN} cx="65"  cy="54" rx="7"  ry="11" />
+      <ellipse fill={SKIN} cx="135" cy="54" rx="7"  ry="11" />
+
+      {/* ── Neck ── */}
+      <rect fill={SKIN} x="90" y="99" width="20" height="26" rx="10" />
+
+      {/* ── Shoulder ovals ── */}
+      <ellipse fill={JOINT} cx="60"  cy="140" rx="26" ry="20" />
+      <ellipse fill={JOINT} cx="140" cy="140" rx="26" ry="20" />
+
+      {/* ── Torso ── */}
+      <rect fill={SKIN} x="77" y="128" width="46" height="52" rx="14" />
+      <rect fill={SKIN} x="79" y="183" width="42" height="48" rx="12" />
+
+      {/* ── Pelvis connector ── */}
+      <rect fill={JOINT} x="70" y="234" width="60" height="22" rx="11" />
+
+      {/* ── Left arm ── */}
+      <rect    fill={SKIN}  x="18" y="138" width="24" height="56" rx="12" />
+      <ellipse fill={JOINT} cx="30" cy="200" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="18" y="209" width="24" height="52" rx="12" />
+      <ellipse fill={JOINT} cx="30" cy="267" rx="13" ry="8"  />
+      <ellipse fill={SKIN}  cx="30" cy="285" rx="15" ry="17" />
+
+      {/* ── Right arm ── */}
+      <rect    fill={SKIN}  x="158" y="138" width="24" height="56" rx="12" />
+      <ellipse fill={JOINT} cx="170" cy="200" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="158" y="209" width="24" height="52" rx="12" />
+      <ellipse fill={JOINT} cx="170" cy="267" rx="13" ry="8"  />
+      <ellipse fill={SKIN}  cx="170" cy="285" rx="15" ry="17" />
+
+      {/* ── Left leg ── */}
+      <rect    fill={SKIN}  x="68"  y="257" width="24" height="76" rx="12" />
+      <ellipse fill={JOINT} cx="80"  cy="340" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="68"  y="349" width="24" height="80" rx="12" />
+      <ellipse fill={JOINT} cx="80"  cy="436" rx="14" ry="8"  />
+      <ellipse fill={SKIN}  cx="73"  cy="455" rx="22" ry="13" />
+
+      {/* ── Right leg ── */}
+      <rect    fill={SKIN}  x="108" y="257" width="24" height="76" rx="12" />
+      <ellipse fill={JOINT} cx="120" cy="340" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="108" y="349" width="24" height="80" rx="12" />
+      <ellipse fill={JOINT} cx="120" cy="436" rx="14" ry="8"  />
+      <ellipse fill={SKIN}  cx="127" cy="455" rx="22" ry="13" />
     </g>
   );
 }
 
 function BackSilhouette() {
   return (
-    <g fill="hsl(28 35% 89%)" stroke="hsl(28 20% 74%)" strokeWidth="0.6" style={{ pointerEvents: "none" }}>
-      <ellipse cx="100" cy="42" rx="34" ry="40" />
-      <path d="M87,80 L113,80 Q116,108 116,124 Q100,129 84,124 Q84,108 87,80 Z" />
-      <path d="M84,124 Q62,112 40,128 Q26,140 24,158 L76,158 Q74,144 76,136 Q80,130 84,124 Z" />
-      <path d="M116,124 Q120,130 124,136 Q126,144 124,158 L176,158 Q174,140 160,128 Q138,112 116,124 Z" />
-      <path d="M72,158 Q100,153 128,158 L124,264 Q100,269 76,264 Z" />
-      <path d="M20,156 L48,156 L40,218 L12,216 Z" />
-      <path d="M10,214 L40,214 L32,276 L2,272 Z" />
-      <ellipse cx="16" cy="294" rx="13" ry="17" />
-      <path d="M152,156 L180,156 L188,218 L160,218 Z" />
-      <path d="M160,214 L190,214 L198,272 L168,276 Z" />
-      <ellipse cx="184" cy="294" rx="13" ry="17" />
-      <path d="M76,264 Q100,260 124,264 L132,328 Q100,333 68,328 Z" />
-      <path d="M64,326 L104,326 L100,382 L60,386 Z" />
-      <path d="M56,384 L100,380 L96,462 L52,466 Z" />
-      <ellipse cx="72" cy="478" rx="22" ry="13" />
-      <path d="M96,326 L136,326 L140,386 L100,382 Z" />
-      <path d="M100,380 L144,384 L148,466 L104,462 Z" />
-      <ellipse cx="128" cy="478" rx="22" ry="13" />
+    <g stroke={LINE} strokeWidth="0.8" style={{ pointerEvents: "none" }}>
+      {/* ── Head (back) ── */}
+      <ellipse fill={SKIN} cx="100" cy="42" rx="30" ry="34" />
+
+      {/* ── Nape ── */}
+      <rect fill={SKIN} x="90" y="99" width="20" height="26" rx="10" />
+
+      {/* ── Shoulder ovals ── */}
+      <ellipse fill={JOINT} cx="60"  cy="140" rx="26" ry="20" />
+      <ellipse fill={JOINT} cx="140" cy="140" rx="26" ry="20" />
+
+      {/* ── Torso (back) ── */}
+      <rect fill={SKIN} x="77" y="128" width="46" height="52" rx="14" />
+      <rect fill={SKIN} x="79" y="183" width="42" height="48" rx="12" />
+
+      {/* ── Left arm (back) ── */}
+      <rect    fill={SKIN}  x="18" y="138" width="24" height="56" rx="12" />
+      <ellipse fill={JOINT} cx="30" cy="200" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="18" y="209" width="24" height="52" rx="12" />
+      <ellipse fill={JOINT} cx="30" cy="267" rx="13" ry="8"  />
+      <ellipse fill={SKIN}  cx="30" cy="285" rx="15" ry="17" />
+
+      {/* ── Right arm (back) ── */}
+      <rect    fill={SKIN}  x="158" y="138" width="24" height="56" rx="12" />
+      <ellipse fill={JOINT} cx="170" cy="200" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="158" y="209" width="24" height="52" rx="12" />
+      <ellipse fill={JOINT} cx="170" cy="267" rx="13" ry="8"  />
+      <ellipse fill={SKIN}  cx="170" cy="285" rx="15" ry="17" />
+
+      {/* ── Buttocks ── */}
+      <rect fill={SKIN} x="68"  y="234" width="24" height="46" rx="12" />
+      <rect fill={SKIN} x="108" y="234" width="24" height="46" rx="12" />
+
+      {/* ── Left leg (back) ── */}
+      <rect    fill={SKIN}  x="68"  y="284" width="24" height="62" rx="12" />
+      <ellipse fill={JOINT} cx="80"  cy="353" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="68"  y="362" width="24" height="80" rx="12" />
+      <ellipse fill={JOINT} cx="80"  cy="449" rx="14" ry="8"  />
+      <ellipse fill={SKIN}  cx="73"  cy="455" rx="22" ry="13" />
+
+      {/* ── Right leg (back) ── */}
+      <rect    fill={SKIN}  x="108" y="284" width="24" height="62" rx="12" />
+      <ellipse fill={JOINT} cx="120" cy="353" rx="14" ry="11" />
+      <rect    fill={SKIN}  x="108" y="362" width="24" height="80" rx="12" />
+      <ellipse fill={JOINT} cx="120" cy="449" rx="14" ry="8"  />
+      <ellipse fill={SKIN}  cx="127" cy="455" rx="22" ry="13" />
     </g>
   );
 }
@@ -187,13 +330,14 @@ export function BodyDoll({
   onZoneInteract,
   onZoneMedicateClick,
 }: BodyDollProps) {
+  void currentCondition;
   const currentZones = view === "front" ? frontZonesDef : backZonesDef;
 
   const zonePaths = currentZones.map((zone) => {
     const data = zones.get(zone.id);
     const severity = data?.severity ?? 0;
     const { fill: fillColor, stroke: strokeColor } = zoneColors(severity);
-    const strokeWidth = severity > 0 ? 1.8 : 1;
+    const strokeWidth = severity > 0 ? 2 : 0.8;
 
     if (readonly) {
       return (
@@ -201,11 +345,10 @@ export function BodyDoll({
           key={zone.id}
           d={zone.d}
           fill={fillColor}
-          stroke={strokeColor}
+          stroke={severity > 0 ? strokeColor : "none"}
           strokeWidth={strokeWidth}
           strokeLinejoin="round"
           strokeLinecap="round"
-          filter={severity > 0 ? "url(#zone-round)" : undefined}
           style={{ cursor: "default" }}
         />
       );
@@ -219,14 +362,13 @@ export function BodyDoll({
           <motion.path
             d={zone.d}
             fill={fillColor}
-            stroke={strokeColor}
+            stroke={severity > 0 ? strokeColor : "rgba(0,0,0,0)"}
             strokeWidth={strokeWidth}
             strokeLinejoin="round"
             strokeLinecap="round"
-            filter={severity > 0 ? "url(#zone-round)" : undefined}
             data-testid={`zone-${zone.id}`}
             className={isClickable ? "cursor-pointer transition-all" : "cursor-default"}
-            whileTap={isClickable ? { scale: 0.93 } : {}}
+            whileTap={isClickable ? { scale: 0.93, opacity: 0.75 } : {}}
             onClick={(e) => {
               e.preventDefault();
               if (mode === "mark") onZoneInteract?.(zone.id);
@@ -252,33 +394,26 @@ export function BodyDoll({
   });
 
   return (
-    <div className="relative w-full max-w-[240px] mx-auto" style={{ aspectRatio: "200/495" }}>
+    <div className="relative w-full max-w-[220px] mx-auto" style={{ aspectRatio: "200/480" }}>
       <svg
-        viewBox="0 0 200 495"
+        viewBox="0 0 200 480"
         className="w-full h-full"
         style={{ touchAction: readonly ? "auto" : "none", userSelect: "none" }}
       >
-        <defs>
-          <filter id="zone-round" x="-12%" y="-12%" width="124%" height="124%">
-            <feMorphology operator="erode"  radius="3" in="SourceGraphic" result="eroded" />
-            <feMorphology operator="dilate" radius="3" in="eroded" />
-          </filter>
-        </defs>
         {view === "front" ? <FrontSilhouette /> : <BackSilhouette />}
         <g>{zonePaths}</g>
 
+        {/* Medication dots */}
         {!readonly && currentZones.map((zone) => {
           const data = zones.get(zone.id);
           if (!data?.medication) return null;
-          const match = zone.d.match(/M([\d.]+),([\d.]+)/);
-          if (!match) return null;
-          const cx = parseFloat(match[1]) + 6;
-          const cy = parseFloat(match[2]) + 6;
+          const dotCx = zone.cx ?? 100;
+          const dotCy = zone.cy ?? 100;
           return (
             <circle
               key={`med-dot-${zone.id}`}
-              cx={cx}
-              cy={cy}
+              cx={dotCx}
+              cy={dotCy}
               r={5}
               fill="hsl(142 71% 45%)"
               stroke="white"
