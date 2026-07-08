@@ -321,6 +321,9 @@ export default function ParentDashboard({ onClose }: ParentDashboardProps) {
             <Button className="rounded-xl" onClick={() => setShowAddProfile(true)}>
               <UserPlus className="w-4 h-4 mr-2" /> Add First Profile
             </Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowAddProfile(true)}>
+              <UserPlus className="w-4 h-4 mr-2" /> Add Family Members
+            </Button>
           </div>
         ) : (
           <>

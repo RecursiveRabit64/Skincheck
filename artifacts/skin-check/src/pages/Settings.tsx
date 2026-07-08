@@ -283,6 +283,7 @@ function MainScreen({
   onDeleteRequest,
   onBatchDeleteRequest,
   onAdd,
+  onSwitchProfile,
 }: {
   activeProfile: StoredProfile | null;
   profiles: StoredProfile[];
@@ -292,6 +293,7 @@ function MainScreen({
   onDeleteRequest: (id: string) => void;
   onBatchDeleteRequest: (ids: string[]) => void;
   onAdd: () => void;
+  onSwitchProfile: (id: string) => void;
 }) {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -357,10 +359,12 @@ function MainScreen({
                 <div
                   className={cn(
                     "flex items-center gap-3 px-4 py-3.5 transition-colors",
-                    selectMode && "cursor-pointer active:bg-muted/40",
+                    selectMode
+                      ? "cursor-pointer active:bg-muted/40"
+                      : !isActive ? "cursor-pointer hover:bg-muted/20 active:bg-muted/40" : "",
                     selectMode && isSelected && "bg-primary/5"
                   )}
-                  onClick={selectMode ? () => toggleSelect(p.id) : undefined}
+                  onClick={selectMode ? () => toggleSelect(p.id) : !isActive ? () => onSwitchProfile(p.id) : undefined}
                 >
                   {selectMode ? (
                     <div className={cn(
@@ -1191,6 +1195,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
                 }}
                 onBatchDeleteRequest={handleBatchDeleteRequest}
                 onAdd={() => setShowAddProfile(true)}
+                onSwitchProfile={onSwitchProfile}
               />
             )}
             {screen === "edit-profile" && editingProfile && (
