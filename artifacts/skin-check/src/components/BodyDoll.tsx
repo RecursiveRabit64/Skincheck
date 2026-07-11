@@ -48,15 +48,20 @@ function el(cx: number, cy: number, rx: number, ry: number): string {
   return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 1 ${cx + rx},${cy} A ${rx},${ry} 0 0 1 ${cx - rx},${cy} Z`;
 }
 
+// ── Arm geometry (SVG rotate(+θ) = clockwise visually in SVG y-down space) ───
+//
+//  rotate(+18) on a pivot at the top → bottom goes LEFT  → use for LEFT  upper arm
+//  rotate(-18) on a pivot at the top → bottom goes RIGHT → use for RIGHT upper arm
+//
+//  Left upper arm:  pivot (54,136) rotate(+18) → bottom ≈ (35, 195)
+//  Right upper arm: pivot (146,136) rotate(-18) → bottom ≈ (165, 195)
+//  Left forearm:    pivot (35,213) rotate(-8)   → bottom ≈ (42, 263)  (slight inward)
+//  Right forearm:   pivot (165,213) rotate(+8)  → bottom ≈ (158, 263) (slight inward)
+
 // ── Zone definitions ──────────────────────────────────────────────────────────
 //
-// Layout (viewBox 0 0 200 490):
-//   Head cy=42  ·  Neck y=77  ·  Shoulder balls cy=118
-//   Chest y=104  ·  Belly y=161  ·  Pelvis shorts y=204
-//   Left arm angled outward ~18°  ·  Elbow cy≈200  ·  Forearms angled ~8°
-//   Wrists cy≈266  ·  Hands with finger stubs
-//   Thighs y=262  ·  Knees cy=344  ·  Shins y=357
-//   Ankles cy=444  ·  Feet with toe bumps cy=460
+// Arm zone hitboxes are ellipses centered at each segment's midpoint, sized
+// to cover the angled visual area.  All other zones use rr() or el() as before.
 
 export const frontZonesDef: ZoneDef[] = [
   // ── Face ─────────────────────────────────────────────────────────────────
@@ -68,12 +73,12 @@ export const frontZonesDef: ZoneDef[] = [
   { id: "right_cheek",      d: "M132,52 Q140,70 126,86 Q112,78 110,62 Q120,50 132,52 Z",                            label: "Right Cheek",   cx: 126, cy: 68 },
   { id: "nose",             d: "M93,52 Q100,46 107,52 Q110,66 107,74 Q100,78 93,74 Q90,66 93,52 Z",                 label: "Nose",          cx: 100, cy: 62 },
   { id: "lips",             d: "M86,76 Q93,70 100,74 Q107,70 114,76 Q111,90 100,93 Q89,90 86,76 Z",                 label: "Lips",          cx: 100, cy: 82 },
-  { id: "chin",             d: "M84,88 Q100,102 116,88 Q112,107 100,110 Q88,107 84,88 Z",                            label: "Chin",          cx: 100, cy: 98 },
+  { id: "chin",             d: "M84,88 Q100,102 116,88 Q112,107 100,110 Q88,107 84,88 Z",                           label: "Chin",          cx: 100, cy: 98 },
 
   // ── Neck ─────────────────────────────────────────────────────────────────
-  { id: "neck",             d: rr(88, 77, 24, 24, 11),     label: "Neck",                cx: 100, cy: 89 },
+  { id: "neck",             d: rr(88, 77, 24, 22, 11),     label: "Neck",                cx: 100, cy: 88 },
 
-  // ── Shoulders (large circles outside torso) ───────────────────────────────
+  // ── Shoulders ─────────────────────────────────────────────────────────────
   { id: "left_shoulder",    d: el(54, 118, 22, 18),         label: "Left Shoulder",       cx: 54,  cy: 118 },
   { id: "right_shoulder",   d: el(146, 118, 22, 18),        label: "Right Shoulder",      cx: 146, cy: 118 },
 
@@ -81,17 +86,21 @@ export const frontZonesDef: ZoneDef[] = [
   { id: "chest",            d: rr(70, 104, 60, 54, 16),     label: "Chest",               cx: 100, cy: 131 },
   { id: "abdomen",          d: rr(78, 161, 44, 40, 13),     label: "Abdomen",             cx: 100, cy: 181 },
 
-  // ── Arms — left (angled outward; ellipse zones cover visual area) ─────────
-  { id: "left_upper_arm",   d: el(46, 167, 18, 38),         label: "Left Upper Arm",      cx: 46,  cy: 167 },
-  { id: "left_forearm",     d: el(33, 238, 14, 28),         label: "Left Forearm",        cx: 33,  cy: 238 },
-  { id: "left_wrist",       d: el(29, 266, 12, 7),          label: "Left Wrist",          cx: 29,  cy: 266 },
-  { id: "left_hand",        d: el(27, 284, 14, 20),         label: "Left Hand",           cx: 27,  cy: 284 },
+  // ── Arms — left ───────────────────────────────────────────────────────────
+  // Upper arm pivot (54,136) rotate(+18): bottom ≈ (35,195); midpoint ≈ (45,166)
+  { id: "left_upper_arm",   d: el(45, 166, 17, 36),         label: "Left Upper Arm",      cx: 45,  cy: 166 },
+  // Forearm pivot (35,213) rotate(-8): bottom ≈ (42,263); midpoint ≈ (39,238)
+  { id: "left_forearm",     d: el(39, 238, 14, 28),         label: "Left Forearm",        cx: 39,  cy: 238 },
+  { id: "left_wrist",       d: el(42, 267, 12, 7),          label: "Left Wrist",          cx: 42,  cy: 267 },
+  { id: "left_hand",        d: el(42, 287, 14, 22),         label: "Left Hand",           cx: 42,  cy: 287 },
 
   // ── Arms — right ──────────────────────────────────────────────────────────
-  { id: "right_upper_arm",  d: el(154, 167, 18, 38),        label: "Right Upper Arm",     cx: 154, cy: 167 },
-  { id: "right_forearm",    d: el(167, 238, 14, 28),        label: "Right Forearm",       cx: 167, cy: 238 },
-  { id: "right_wrist",      d: el(171, 266, 12, 7),         label: "Right Wrist",         cx: 171, cy: 266 },
-  { id: "right_hand",       d: el(173, 284, 14, 20),        label: "Right Hand",          cx: 173, cy: 284 },
+  // Upper arm pivot (146,136) rotate(-18): bottom ≈ (165,195); midpoint ≈ (156,166)
+  { id: "right_upper_arm",  d: el(156, 166, 17, 36),        label: "Right Upper Arm",     cx: 156, cy: 166 },
+  // Forearm pivot (165,213) rotate(+8): bottom ≈ (158,263); midpoint ≈ (162,238)
+  { id: "right_forearm",    d: el(162, 238, 14, 28),        label: "Right Forearm",       cx: 162, cy: 238 },
+  { id: "right_wrist",      d: el(158, 267, 12, 7),         label: "Right Wrist",         cx: 158, cy: 267 },
+  { id: "right_hand",       d: el(158, 287, 14, 22),        label: "Right Hand",          cx: 158, cy: 287 },
 
   // ── Thighs ────────────────────────────────────────────────────────────────
   { id: "left_thigh",       d: rr(68, 262, 12, 76, 6),     label: "Left Thigh",          cx: 74,  cy: 300 },
@@ -112,14 +121,14 @@ export const frontZonesDef: ZoneDef[] = [
   { id: "right_ankle",      d: el(120, 444, 13, 8),         label: "Right Ankle",         cx: 120, cy: 444 },
 
   // ── Feet ──────────────────────────────────────────────────────────────────
-  { id: "left_foot",        d: el(74, 460, 23, 14),         label: "Left Foot",           cx: 74,  cy: 460 },
-  { id: "right_foot",       d: el(126, 460, 23, 14),        label: "Right Foot",          cx: 126, cy: 460 },
+  { id: "left_foot",        d: el(74, 460, 23, 13),         label: "Left Foot",           cx: 74,  cy: 460 },
+  { id: "right_foot",       d: el(126, 460, 23, 13),        label: "Right Foot",          cx: 126, cy: 460 },
 ];
 
 export const backZonesDef: ZoneDef[] = [
   // ── Head / neck (back) ───────────────────────────────────────────────────
   { id: "occipital",             d: "M70,8 Q100,-2 130,8 Q134,28 100,36 Q66,28 70,8 Z",    label: "Back of Head",           cx: 100, cy: 18 },
-  { id: "nape",                  d: rr(88, 77, 24, 24, 11),                                  label: "Nape of Neck",           cx: 100, cy: 89 },
+  { id: "nape",                  d: rr(88, 77, 24, 22, 11),                                  label: "Nape of Neck",           cx: 100, cy: 88 },
 
   // ── Torso (back) ─────────────────────────────────────────────────────────
   { id: "left_shoulder_back",    d: el(54, 118, 22, 18),                                     label: "Left Shoulder (Back)",   cx: 54,  cy: 118 },
@@ -128,18 +137,18 @@ export const backZonesDef: ZoneDef[] = [
   { id: "lower_back",            d: rr(78, 161, 44, 40, 13),                                 label: "Lower Back",             cx: 100, cy: 181 },
 
   // ── Arms — back left ─────────────────────────────────────────────────────
-  { id: "back_left_upper_arm",   d: el(46, 167, 18, 38),                                     label: "Back of Left Upper Arm", cx: 46,  cy: 167 },
-  { id: "left_inner_elbow",      d: el(36, 201, 14, 12),                                     label: "Left Elbow",             cx: 36,  cy: 201 },
-  { id: "back_left_forearm",     d: el(33, 238, 14, 28),                                     label: "Back of Left Forearm",   cx: 33,  cy: 238 },
-  { id: "back_left_wrist",       d: el(29, 266, 12, 7),                                      label: "Left Wrist (Back)",      cx: 29,  cy: 266 },
-  { id: "back_left_hand",        d: el(27, 284, 14, 20),                                     label: "Back of Left Hand",      cx: 27,  cy: 284 },
+  { id: "back_left_upper_arm",   d: el(45, 166, 17, 36),                                     label: "Back of Left Upper Arm", cx: 45,  cy: 166 },
+  { id: "left_inner_elbow",      d: el(35, 200, 14, 12),                                     label: "Left Elbow",             cx: 35,  cy: 200 },
+  { id: "back_left_forearm",     d: el(39, 238, 14, 28),                                     label: "Back of Left Forearm",   cx: 39,  cy: 238 },
+  { id: "back_left_wrist",       d: el(42, 267, 12, 7),                                      label: "Left Wrist (Back)",      cx: 42,  cy: 267 },
+  { id: "back_left_hand",        d: el(42, 287, 14, 22),                                     label: "Back of Left Hand",      cx: 42,  cy: 287 },
 
   // ── Arms — back right ────────────────────────────────────────────────────
-  { id: "back_right_upper_arm",  d: el(154, 167, 18, 38),                                    label: "Back of Right Upper Arm",cx: 154, cy: 167 },
-  { id: "right_inner_elbow",     d: el(164, 201, 14, 12),                                    label: "Right Elbow",            cx: 164, cy: 201 },
-  { id: "back_right_forearm",    d: el(167, 238, 14, 28),                                    label: "Back of Right Forearm",  cx: 167, cy: 238 },
-  { id: "back_right_wrist",      d: el(171, 266, 12, 7),                                     label: "Right Wrist (Back)",     cx: 171, cy: 266 },
-  { id: "back_right_hand",       d: el(173, 284, 14, 20),                                    label: "Back of Right Hand",     cx: 173, cy: 284 },
+  { id: "back_right_upper_arm",  d: el(156, 166, 17, 36),                                    label: "Back of Right Upper Arm",cx: 156, cy: 166 },
+  { id: "right_inner_elbow",     d: el(165, 200, 14, 12),                                    label: "Right Elbow",            cx: 165, cy: 200 },
+  { id: "back_right_forearm",    d: el(162, 238, 14, 28),                                    label: "Back of Right Forearm",  cx: 162, cy: 238 },
+  { id: "back_right_wrist",      d: el(158, 267, 12, 7),                                     label: "Right Wrist (Back)",     cx: 158, cy: 267 },
+  { id: "back_right_hand",       d: el(158, 287, 14, 22),                                    label: "Back of Right Hand",     cx: 158, cy: 287 },
 
   // ── Buttocks ─────────────────────────────────────────────────────────────
   { id: "left_buttock",          d: rr(68, 204, 24, 54, 12),                                 label: "Left Buttock",           cx: 80,  cy: 231 },
@@ -158,8 +167,8 @@ export const backZonesDef: ZoneDef[] = [
   { id: "right_calf",            d: rr(109, 357, 22, 80, 11),                                label: "Right Calf",             cx: 120, cy: 397 },
 
   // ── Heels ────────────────────────────────────────────────────────────────
-  { id: "left_heel",             d: el(74, 460, 23, 14),                                     label: "Left Heel",              cx: 74,  cy: 460 },
-  { id: "right_heel",            d: el(126, 460, 23, 14),                                    label: "Right Heel",             cx: 126, cy: 460 },
+  { id: "left_heel",             d: el(74, 460, 23, 13),                                     label: "Left Heel",              cx: 74,  cy: 460 },
+  { id: "right_heel",            d: el(126, 460, 23, 13),                                    label: "Right Heel",             cx: 126, cy: 460 },
 ];
 
 export const zonesDef: ZoneDef[] = [...frontZonesDef, ...backZonesDef];
@@ -186,59 +195,48 @@ const SKIN  = "hsl(28 35% 89%)";
 const LINE  = "hsl(28 20% 74%)";
 const JOINT = "hsl(28 28% 83%)";
 
-// ── Hand shape helper (fingers pointing downward) ─────────────────────────────
-//
-// cx/cy = center of palm. spread: 1=left hand, -1=right hand (mirrors finger order)
+// ── Hand silhouette (palm + 4 fingers + thumb) ────────────────────────────────
+// spread=1 for left hand (thumb on right/outer side), spread=-1 for right hand
 
 function HandShape({ cx, cy, spread = 1 }: { cx: number; cy: number; spread?: number }) {
-  const pw = 14; const ph = 14; // palm half-width and half-height
-  const fw = 3.8;               // finger half-width
-  const fg = 1.8;               // gap between fingers
-  const fl = 9;                 // finger length
-  const fTotal = 4 * (fw * 2) + 3 * fg; // total finger row width
-  const fStart = cx - (fTotal / 2) * spread;
-  const fingers = [0, 1, 2, 3].map((i) => fStart + (i * (fw * 2 + fg)) * spread);
+  const pw = 13;   // palm half-width
+  const ph = 13;   // palm half-height
+  const fw = 3.6;  // finger half-width
+  const fg = 1.6;  // gap between fingers
+  const fl = 8;    // finger length (stub)
+  const unit = fw * 2 + fg;
+  const totalFW = 4 * unit - fg;
+  const f0 = cx - (totalFW / 2) * spread;
 
   return (
     <g fill={SKIN} stroke={LINE} strokeWidth="0.8">
       {/* Palm */}
-      <rect x={cx - pw} y={cy - ph} width={pw * 2} height={ph * 2} rx={pw * 0.6} />
+      <rect x={cx - pw} y={cy - ph} width={pw * 2} height={ph * 2} rx={pw * 0.55} />
       {/* Four finger stubs below palm */}
-      {fingers.map((fx, i) => (
-        <rect key={i} x={fx - fw} y={cy + ph - 3} width={fw * 2} height={fl} rx={fw} />
-      ))}
-      {/* Thumb stub on the outer side */}
+      {[0, 1, 2, 3].map((i) => {
+        const fx = f0 + i * unit * spread;
+        return <rect key={i} x={fx - fw} y={cy + ph - 4} width={fw * 2} height={fl} rx={fw} />;
+      })}
+      {/* Thumb on outer side */}
       <rect
-        x={cx + (pw - 2) * spread - fw}
-        y={cy - ph + 2}
+        x={cx + (pw - 1) * spread - fw}
+        y={cy - ph + 4}
         width={fw * 2}
         height={fl - 1}
         rx={fw}
-        transform={`rotate(${spread * -32},${cx + (pw - 2) * spread},${cy - ph + 2})`}
+        transform={`rotate(${spread * -35},${cx + (pw - 1) * spread},${cy - ph + 4})`}
       />
     </g>
   );
 }
 
-// ── Foot shape helper (toes pointing outward / slightly forward) ──────────────
-
-function FootShape({ cx, cy, side }: { cx: number; cy: number; side: "left" | "right" }) {
-  const dir = side === "left" ? -1 : 1; // toe direction: left foot toes go left
-  const toeBase = cx + dir * 12;        // x-center of toe row
-  const toeY = cy + 8;
-  const toeOffsets = [-8, -4, 0, 4, 8]; // relative x offsets for 5 toes
-
-  return (
-    <g fill={SKIN} stroke={LINE} strokeWidth="0.8">
-      <ellipse cx={cx} cy={cy} rx={22} ry={12} />
-      {toeOffsets.map((offset, i) => (
-        <circle key={i} cx={toeBase + offset * dir * 0.6} cy={toeY + Math.abs(offset) * 0.25} r={3.5} />
-      ))}
-    </g>
-  );
-}
-
 // ── Front Silhouette ──────────────────────────────────────────────────────────
+//
+// Arm angles (SVG y-down: rotate(+θ)=clockwise visually):
+//   Left  upper arm: pivot(54,136)  rotate(+18) → bottom ≈ (35,195)
+//   Right upper arm: pivot(146,136) rotate(-18) → bottom ≈ (165,195)
+//   Left  forearm:   pivot(35,213)  rotate(-8)  → bottom ≈ (42,263) [slight inward]
+//   Right forearm:   pivot(165,213) rotate(+8)  → bottom ≈ (158,263)
 
 function FrontSilhouette() {
   return (
@@ -248,11 +246,21 @@ function FrontSilhouette() {
       <ellipse fill={SKIN} cx="66"  cy="55" rx="6"  ry="10" />
       <ellipse fill={SKIN} cx="134" cy="55" rx="6"  ry="10" />
 
+      {/* ── Nose hint ── */}
+      <path
+        d="M 97,53 Q 100,65 97,67 Q 100,70 103,67 Q 100,65 103,53"
+        fill="none"
+        stroke={LINE}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+
       {/* ── Neck collar ── */}
       <rect   fill={SKIN}  x="88" y="77" width="24" height="22" rx="11" />
       <rect   fill={JOINT} x="85" y="96" width="30" height="7"  rx="3.5" />
 
-      {/* ── Shoulder ball joints (prominent circles) ── */}
+      {/* ── Shoulder ball joints (large circles) ── */}
       <circle fill={JOINT} cx="54"  cy="118" r="18" />
       <circle fill={JOINT} cx="146" cy="118" r="18" />
 
@@ -268,49 +276,51 @@ function FrontSilhouette() {
         d="M 72,204 H 128 Q 134,230 124,250 Q 114,266 100,264 Q 86,266 76,250 Q 66,230 72,204 Z"
       />
 
-      {/* ── Left arm (angled outward ~18°) ── */}
+      {/* ── Left arm ── */}
+      {/* Upper arm: pivot (54,136) rotate(+18) */}
       <g transform="translate(54,136)">
-        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(-18,0,0)" />
+        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(18,0,0)" />
       </g>
-      {/* Left elbow ball */}
-      <circle fill={JOINT} cx="35" cy="200" r="13" />
-      {/* Left forearm (slight inward angle ~8°) */}
+      {/* Left elbow ball ≈ (35,199) */}
+      <circle fill={JOINT} cx="35" cy="199" r="13" />
+      {/* Left forearm: pivot (35,213) rotate(-8) */}
       <g transform="translate(35,213)">
         <rect fill={SKIN} x="-10" y="0" width="20" height="50" rx="10" transform="rotate(-8,0,0)" />
       </g>
-      {/* Left wrist oval */}
-      <ellipse fill={JOINT} cx="29" cy="265" rx="12" ry="7" />
-      {/* Left hand */}
-      <HandShape cx={27} cy={284} spread={1} />
+      {/* Left wrist oval ≈ (42,265) */}
+      <ellipse fill={JOINT} cx="42" cy="265" rx="12" ry="7" />
+      {/* Left hand ≈ (42,283) */}
+      <HandShape cx={42} cy={283} spread={1} />
 
-      {/* ── Right arm (angled outward ~18°) ── */}
+      {/* ── Right arm ── */}
+      {/* Upper arm: pivot (146,136) rotate(-18) */}
       <g transform="translate(146,136)">
-        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(18,0,0)" />
+        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(-18,0,0)" />
       </g>
-      {/* Right elbow ball */}
-      <circle fill={JOINT} cx="165" cy="200" r="13" />
-      {/* Right forearm */}
+      {/* Right elbow ball ≈ (165,199) */}
+      <circle fill={JOINT} cx="165" cy="199" r="13" />
+      {/* Right forearm: pivot (165,213) rotate(+8) */}
       <g transform="translate(165,213)">
         <rect fill={SKIN} x="-10" y="0" width="20" height="50" rx="10" transform="rotate(8,0,0)" />
       </g>
-      {/* Right wrist oval */}
-      <ellipse fill={JOINT} cx="171" cy="265" rx="12" ry="7" />
-      {/* Right hand */}
-      <HandShape cx={173} cy={284} spread={-1} />
+      {/* Right wrist oval ≈ (158,265) */}
+      <ellipse fill={JOINT} cx="158" cy="265" rx="12" ry="7" />
+      {/* Right hand ≈ (158,283) */}
+      <HandShape cx={158} cy={283} spread={-1} />
 
       {/* ── Left leg ── */}
       <rect    fill={SKIN}  x="68"  y="262" width="24" height="76" rx="12" />
       <circle  fill={JOINT} cx="80"  cy="344" r="15" />
       <rect    fill={SKIN}  x="69"  y="357" width="22" height="80" rx="11" />
       <ellipse fill={JOINT} cx="80"  cy="444" rx="13" ry="8" />
-      <FootShape cx={74} cy={460} side="left" />
+      <ellipse fill={SKIN}  cx="74"  cy="460" rx="22" ry="12" />
 
       {/* ── Right leg ── */}
       <rect    fill={SKIN}  x="108" y="262" width="24" height="76" rx="12" />
       <circle  fill={JOINT} cx="120" cy="344" r="15" />
       <rect    fill={SKIN}  x="109" y="357" width="22" height="80" rx="11" />
       <ellipse fill={JOINT} cx="120" cy="444" rx="13" ry="8" />
-      <FootShape cx={126} cy={460} side="right" />
+      <ellipse fill={SKIN}  cx="126" cy="460" rx="22" ry="12" />
     </g>
   );
 }
@@ -331,7 +341,7 @@ function BackSilhouette() {
       <circle fill={JOINT} cx="54"  cy="118" r="18" />
       <circle fill={JOINT} cx="146" cy="118" r="18" />
 
-      {/* ── Upper back (wider) ── */}
+      {/* ── Upper back ── */}
       <rect fill={SKIN} x="70" y="104" width="60" height="54" rx="16" />
 
       {/* ── Lower back ── */}
@@ -339,25 +349,25 @@ function BackSilhouette() {
 
       {/* ── Left arm (back — same angles) ── */}
       <g transform="translate(54,136)">
-        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(-18,0,0)" />
+        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(18,0,0)" />
       </g>
-      <circle fill={JOINT} cx="35" cy="200" r="13" />
+      <circle fill={JOINT} cx="35" cy="199" r="13" />
       <g transform="translate(35,213)">
         <rect fill={SKIN} x="-10" y="0" width="20" height="50" rx="10" transform="rotate(-8,0,0)" />
       </g>
-      <ellipse fill={JOINT} cx="29" cy="265" rx="12" ry="7" />
-      <HandShape cx={27} cy={284} spread={1} />
+      <ellipse fill={JOINT} cx="42" cy="265" rx="12" ry="7" />
+      <HandShape cx={42} cy={283} spread={1} />
 
       {/* ── Right arm (back) ── */}
       <g transform="translate(146,136)">
-        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(18,0,0)" />
+        <rect fill={SKIN} x="-11" y="0" width="22" height="62" rx="11" transform="rotate(-18,0,0)" />
       </g>
-      <circle fill={JOINT} cx="165" cy="200" r="13" />
+      <circle fill={JOINT} cx="165" cy="199" r="13" />
       <g transform="translate(165,213)">
         <rect fill={SKIN} x="-10" y="0" width="20" height="50" rx="10" transform="rotate(8,0,0)" />
       </g>
-      <ellipse fill={JOINT} cx="171" cy="265" rx="12" ry="7" />
-      <HandShape cx={173} cy={284} spread={-1} />
+      <ellipse fill={JOINT} cx="158" cy="265" rx="12" ry="7" />
+      <HandShape cx={158} cy={283} spread={-1} />
 
       {/* ── Buttocks ── */}
       <rect fill={SKIN} x="68"  y="204" width="24" height="54" rx="12" />
