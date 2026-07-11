@@ -394,14 +394,14 @@ function MainScreen({
                     <div className="flex items-center gap-0.5 shrink-0">
                       <motion.button
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => onEditProfile(p.id)}
+                        onClick={(e) => { e.stopPropagation(); onEditProfile(p.id); }}
                         className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => onDeleteRequest(p.id)}
+                        onClick={(e) => { e.stopPropagation(); onDeleteRequest(p.id); }}
                         className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1019,7 +1019,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     updateProfile, removeProfile,
     addFamily, renameFamily, deleteFamily,
     addProfileToFamily, removeProfileFromFamily,
-    setPendingLastDelete,
+    setPendingLastDelete, switchProfile,
   } = useProfile();
   const { deleteReportsForProfile } = useCheckIn();
 
@@ -1070,9 +1070,9 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
     setPendingDeleteProfile(profileToDelete);
     if (profileToDelete.id === activeProfile?.id) {
       const other = remaining[0];
-      if (other) onSwitchProfile(other.id);
+      if (other) switchProfile(other.id);
     }
-  }, [deleteConfirmProfile, activeProfile, profiles, onSwitchProfile, setPendingLastDelete, onClose]);
+  }, [deleteConfirmProfile, activeProfile, profiles, switchProfile, setPendingLastDelete, onClose]);
 
   const handleUndo = useCallback(() => {
     pendingDeleteRef.current = null;

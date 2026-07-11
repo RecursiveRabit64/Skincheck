@@ -1,8 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
 export interface ZoneEntry {
-  condition: string;
-  severity: number;
+  conditions: Array<{ condition: string; severity: number }>;
   medication?: string;
 }
 
@@ -29,11 +28,32 @@ interface CheckInContextValue {
 
 const STORAGE_KEY = "skincheck_reports_v1";
 
+function migrateEntry(raw: unknown): ZoneEntry {
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    if (Array.isArray(r.conditions)) return raw as ZoneEntry;
+    if (typeof r.condition === "string") {
+      return {
+        conditions: [{ condition: r.condition, severity: (r.severity as number) ?? 3 }],
+        medication: r.medication as string | undefined,
+      };
+    }
+  }
+  return { conditions: [] };
+}
+
 function loadStore(): CheckInStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { reports: [] };
-    return JSON.parse(raw) as CheckInStore;
+    const parsed = JSON.parse(raw) as CheckInStore;
+    const reports = parsed.reports.map((r) => ({
+      ...r,
+      zones: Object.fromEntries(
+        Object.entries(r.zones).map(([k, v]) => [k, migrateEntry(v)])
+      ),
+    }));
+    return { reports };
   } catch {
     return { reports: [] };
   }

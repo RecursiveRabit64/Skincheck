@@ -51,7 +51,21 @@ function daysAgo(dateStr: string): string {
 function reportToZoneMap(report: CheckInReport): Map<string, ZoneData> {
   const m = new Map<string, ZoneData>();
   for (const [k, v] of Object.entries(report.zones)) {
-    m.set(k, { condition: v.condition as SkinCondition, severity: v.severity, medication: v.medication });
+    const entry = v as unknown as Record<string, unknown>;
+    if (Array.isArray(entry.conditions)) {
+      m.set(k, {
+        conditions: (entry.conditions as Array<{ condition: string; severity: number }>).map((c) => ({
+          condition: c.condition as SkinCondition,
+          severity: c.severity,
+        })),
+        medication: entry.medication as string | undefined,
+      });
+    } else {
+      m.set(k, {
+        conditions: [{ condition: entry.condition as SkinCondition, severity: entry.severity as number }],
+        medication: entry.medication as string | undefined,
+      });
+    }
   }
   return m;
 }
@@ -62,9 +76,15 @@ function getConditionSummary(report: CheckInReport): string[] {
   const zoneLabel = Object.fromEntries(allZones.map((z) => [z.id, z.label]));
 
   for (const [zoneId, entry] of Object.entries(report.zones)) {
-    const cond = entry.condition;
-    if (!condMap[cond]) condMap[cond] = [];
-    condMap[cond].push(zoneLabel[zoneId] ?? zoneId);
+    const raw = entry as unknown as Record<string, unknown>;
+    const conditionList: Array<{ condition: string }> = Array.isArray(raw.conditions)
+      ? (raw.conditions as Array<{ condition: string }>)
+      : [{ condition: raw.condition as string }];
+    for (const { condition: cond } of conditionList) {
+      if (!condMap[cond]) condMap[cond] = [];
+      const label = zoneLabel[zoneId] ?? zoneId;
+      if (!condMap[cond].includes(label)) condMap[cond].push(label);
+    }
   }
 
   return Object.entries(condMap).map(([cond, zones]) => {
@@ -74,7 +94,17 @@ function getConditionSummary(report: CheckInReport): string[] {
 }
 
 function maxSeverity(report: CheckInReport): number {
-  return Math.max(0, ...Object.values(report.zones).map((z) => z.severity));
+  let max = 0;
+  for (const v of Object.values(report.zones)) {
+    const entry = v as unknown as Record<string, unknown>;
+    const conditions: Array<{ severity: number }> = Array.isArray(entry.conditions)
+      ? (entry.conditions as Array<{ severity: number }>)
+      : [{ severity: entry.severity as number }];
+    for (const { severity } of conditions) {
+      if (severity > max) max = severity;
+    }
+  }
+  return max;
 }
 
 function severityColor(sev: number): string {

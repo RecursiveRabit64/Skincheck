@@ -150,11 +150,9 @@ const SCRATCH_5_7: ScratchOption[] = [
   { emoji: "😢", label: "A lot!",   sublabel: "I kept scratching",         value: 9 },
 ];
 const SCRATCH_8_12: ScratchOption[] = [
-  { emoji: "😄", label: "Not at all", value: 1  },
-  { emoji: "😊", label: "Barely",     value: 3  },
-  { emoji: "😐", label: "Sometimes",  value: 5  },
-  { emoji: "😕", label: "A lot",      value: 7  },
-  { emoji: "😢", label: "Constantly", value: 10 },
+  { emoji: "😊", label: "Not really", sublabel: "Didn't scratch much",      value: 2 },
+  { emoji: "😐", label: "Some",       sublabel: "Scratched a few times",    value: 5 },
+  { emoji: "😢", label: "A lot!",     sublabel: "Couldn't stop scratching", value: 9 },
 ];
 
 function scratchEmojiFor(v: number): string {
@@ -193,6 +191,17 @@ const CONDITION_EMOJI: Record<string, string> = {
   "Ringworm": "🔵", "Athlete's Foot": "👟", "Fungal Rash": "🍄",
   "Warts": "🎯", "Keratosis Pilaris": "🐓",
 };
+
+const CONDITION_DISPLAY_NAME: Partial<Record<SkinCondition, string>> = {
+  "Keratosis Pilaris":     "Chicken Skin",
+  "Contact Dermatitis":    "Skin Reaction",
+  "Seborrheic Dermatitis": "Flaky Scalp",
+  "Athlete's Foot":        "Foot Fungus",
+};
+
+function displayConditionName(condition: SkinCondition): string {
+  return CONDITION_DISPLAY_NAME[condition] ?? condition;
+}
 
 type Phase1Mode = "add" | "inspect";
 
@@ -501,20 +510,22 @@ function HomeLanding({
 function SeverityTray({
   zoneId,
   zoneData,
+  currentCondition,
   ageRange,
   onSelect,
   onClear,
-  onClose,
 }: {
   zoneId: string;
   zoneData: ZoneData | undefined;
+  currentCondition: SkinCondition;
   ageRange: AgeRange;
   onSelect: (severity: number) => void;
   onClear: () => void;
-  onClose: () => void;
 }) {
   const options = getSeverityOptions(ageRange);
   const label = zoneLabelMap[zoneId] ?? zoneId;
+  const currentEntry = zoneData?.conditions.find((c) => c.condition === currentCondition);
+  const otherConditions = zoneData?.conditions.filter((c) => c.condition !== currentCondition) ?? [];
 
   return (
     <motion.div
@@ -526,35 +537,31 @@ function SeverityTray({
       className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border rounded-t-3xl shadow-2xl px-5 pt-4 pb-8 max-w-md mx-auto"
       style={{ marginLeft: "auto", marginRight: "auto" }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="min-w-0 flex-1">
           <p className="font-semibold text-base">{label}</p>
-          {zoneData && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {zoneData.condition}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground mt-0.5">{displayConditionName(currentCondition)}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {zoneData && (
-            <button
-              onClick={onClear}
-              className="text-xs text-destructive px-2 py-1 rounded-lg hover:bg-destructive/10 transition-colors"
-            >
-              Clear zone
-            </button>
-          )}
-          <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground">
-            <X className="w-4 h-4" />
-          </motion.button>
-        </div>
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onClear} className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors ml-2" title="Remove this condition">
+          <X className="w-4 h-4" />
+        </motion.button>
       </div>
 
-      <p className="text-sm font-medium text-muted-foreground mb-3">How bad is it?</p>
+      {otherConditions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {otherConditions.map((c) => (
+            <span key={c.condition} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+              {displayConditionName(c.condition as SkinCondition)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <p className="text-sm font-medium text-muted-foreground mb-3 mt-2">How bad is it?</p>
 
       <div className="grid grid-cols-3 gap-3">
         {options.map((opt) => {
-          const isSelected = zoneData?.severity === opt.value;
+          const isSelected = currentEntry?.severity === opt.value;
           return (
             <motion.button
               key={opt.value}
@@ -621,19 +628,19 @@ function Phase1({
       return;
     }
     const existing = zones.get(id);
-    if (existing && existing.condition !== currentCondition) {
-      // Zone already has a different condition — open tray to show it, don't replace
+    if (existing?.conditions.some((c) => c.condition === currentCondition)) {
+      // Zone already has this condition — open tray to adjust severity
       setActiveTrayZone(id);
       return;
     }
+    pushHistory(zones);
     setZones((prev) => {
-      pushHistory(prev);
       const next = new Map(prev);
       const ex = next.get(id);
       if (ex) {
-        next.set(id, { ...ex, severity: ex.severity > 0 ? ex.severity : 3 });
+        next.set(id, { ...ex, conditions: [...ex.conditions, { condition: currentCondition, severity: 3 }] });
       } else {
-        next.set(id, { condition: currentCondition, severity: 3 });
+        next.set(id, { conditions: [{ condition: currentCondition, severity: 3 }] });
       }
       return next;
     });
@@ -645,7 +652,12 @@ function Phase1({
     setZones((prev) => {
       const next = new Map(prev);
       const existing = next.get(activeTrayZone);
-      if (existing) next.set(activeTrayZone, { ...existing, severity });
+      if (existing) {
+        const updatedConditions = existing.conditions.map((c) =>
+          c.condition === currentCondition ? { ...c, severity } : c
+        );
+        next.set(activeTrayZone, { ...existing, conditions: updatedConditions });
+      }
       return next;
     });
     setActiveTrayZone(null);
@@ -656,7 +668,15 @@ function Phase1({
     setZones((prev) => {
       pushHistory(prev);
       const next = new Map(prev);
-      next.delete(activeTrayZone);
+      const existing = next.get(activeTrayZone);
+      if (existing) {
+        const remaining = existing.conditions.filter((c) => c.condition !== currentCondition);
+        if (remaining.length === 0) {
+          next.delete(activeTrayZone);
+        } else {
+          next.set(activeTrayZone, { ...existing, conditions: remaining });
+        }
+      }
       return next;
     });
     setActiveTrayZone(null);
@@ -725,7 +745,7 @@ function Phase1({
                   )}
                 >
                   <span className="text-base leading-none shrink-0">{CONDITION_EMOJI[cond] ?? "🩹"}</span>
-                  <span className="truncate">{cond}</span>
+                  <span className="truncate">{displayConditionName(cond)}</span>
                 </motion.button>
               );
             })}
@@ -788,14 +808,18 @@ function Phase1({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 4 }}
                 transition={{ duration: 0.15 }}
-                className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm"
+                className="bg-card border border-border rounded-2xl px-4 py-3 shadow-sm"
               >
-                <span className="text-3xl leading-none">{CONDITION_EMOJI[inspectZoneData.condition] ?? "🩹"}</span>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-muted-foreground truncate">{zoneLabelMap[inspectZone] ?? inspectZone}</p>
-                  <p className="text-sm font-bold text-foreground truncate">{inspectZoneData.condition}</p>
-                  <p className="text-xs text-muted-foreground">{inspectZoneData.severity <= 4 ? "😊 Mild" : inspectZoneData.severity <= 7 ? "😐 Moderate" : "😢 Severe"}</p>
-                </div>
+                <p className="text-xs font-semibold text-muted-foreground truncate mb-2">{zoneLabelMap[inspectZone] ?? inspectZone}</p>
+                {inspectZoneData.conditions.map((ce, idx) => (
+                  <div key={ce.condition} className={cn("flex items-center gap-3", idx > 0 && "border-t border-border/50 mt-2 pt-2")}>
+                    <span className="text-2xl leading-none">{CONDITION_EMOJI[ce.condition] ?? "🩹"}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{displayConditionName(ce.condition as SkinCondition)}</p>
+                      <p className="text-xs text-muted-foreground">{ce.severity <= 4 ? "😊 Mild" : ce.severity <= 7 ? "😐 Moderate" : "😢 Severe"}</p>
+                    </div>
+                  </div>
+                ))}
               </motion.div>
             ) : inspectZone && !inspectZoneData ? (
               <motion.div
@@ -855,10 +879,10 @@ function Phase1({
           <SeverityTray
             zoneId={activeTrayZone}
             zoneData={activeZoneData}
+            currentCondition={currentCondition}
             ageRange={ageRange}
             onSelect={handleSeveritySelect}
             onClear={handleClearZone}
-            onClose={() => setActiveTrayZone(null)}
           />
         )}
       </AnimatePresence>
@@ -940,23 +964,31 @@ function Phase2({
           </div>
         )}
 
-        {/* Ages 8–12: 5 medium cards in a row */}
+        {/* Ages 8–12: 3 stacked cards (same style as 5-7) */}
         {isMid && (
-          <div className="grid grid-cols-5 gap-2">
+          <div className="flex flex-col gap-4">
             {SCRATCH_8_12.map((opt) => (
               <motion.button
                 key={opt.value}
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setScratchScore(opt.value)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 py-4 rounded-2xl border-2 transition-all",
+                  "w-full flex items-center gap-5 p-5 rounded-2xl border-2 transition-all text-left",
                   scratchScore === opt.value
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-white hover:bg-muted/20"
+                    ? "border-primary bg-primary/5 shadow-md"
+                    : "border-border bg-white hover:bg-muted/20 hover:border-muted-foreground/20"
                 )}
               >
-                <span className="text-3xl leading-none">{opt.emoji}</span>
-                <span className="text-[10px] font-semibold text-center leading-tight text-foreground">{opt.label}</span>
+                <span className="text-5xl leading-none shrink-0">{opt.emoji}</span>
+                <div>
+                  <p className="text-lg font-bold">{opt.label}</p>
+                  {opt.sublabel && <p className="text-sm text-muted-foreground mt-0.5">{opt.sublabel}</p>}
+                </div>
+                {scratchScore === opt.value && (
+                  <div className="ml-auto w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                    <span className="text-white text-xs font-bold">✓</span>
+                  </div>
+                )}
               </motion.button>
             ))}
           </div>
@@ -1066,10 +1098,13 @@ function Phase3({
   const conditionGroups = useMemo(() => {
     const groups = new Map<string, { zoneLabels: string[]; maxSeverity: number }>();
     zones.forEach((data, zoneId) => {
-      if (!groups.has(data.condition)) groups.set(data.condition, { zoneLabels: [], maxSeverity: 0 });
-      const g = groups.get(data.condition)!;
-      g.zoneLabels.push(zoneLabelMap[zoneId] ?? zoneId);
-      g.maxSeverity = Math.max(g.maxSeverity, data.severity);
+      data.conditions.forEach(({ condition, severity }) => {
+        if (!groups.has(condition)) groups.set(condition, { zoneLabels: [], maxSeverity: 0 });
+        const g = groups.get(condition)!;
+        const zlabel = zoneLabelMap[zoneId] ?? zoneId;
+        if (!g.zoneLabels.includes(zlabel)) g.zoneLabels.push(zlabel);
+        g.maxSeverity = Math.max(g.maxSeverity, severity);
+      });
     });
     return Array.from(groups.entries()).map(([condition, g]) => ({ condition, ...g }));
   }, [zones]);
@@ -1116,7 +1151,7 @@ function Phase3({
                 <div key={condition} className="flex items-start gap-3 px-4 py-3">
                   <div className={cn("w-2.5 h-2.5 rounded-full mt-1 shrink-0", dot)} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{condition}</p>
+                    <p className="text-sm font-semibold text-foreground">{displayConditionName(condition as SkinCondition)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{formatZoneList(zoneLabels)}</p>
                   </div>
                   <span className={cn("text-xs font-semibold shrink-0 mt-0.5", textColor)}>{sevLabel}</span>
@@ -1239,7 +1274,21 @@ export default function Home() {
     if (!todayReport) return;
     const loadedZones = new Map<string, ZoneData>();
     Object.entries(todayReport.zones).forEach(([k, v]) => {
-      loadedZones.set(k, { condition: v.condition as SkinCondition, severity: v.severity, medication: v.medication });
+      const entry = v as unknown as Record<string, unknown>;
+      if (Array.isArray(entry.conditions)) {
+        loadedZones.set(k, {
+          conditions: (entry.conditions as Array<{ condition: string; severity: number }>).map((c) => ({
+            condition: c.condition as SkinCondition,
+            severity: c.severity,
+          })),
+          medication: entry.medication as string | undefined,
+        });
+      } else {
+        loadedZones.set(k, {
+          conditions: [{ condition: entry.condition as SkinCondition, severity: entry.severity as number }],
+          medication: entry.medication as string | undefined,
+        });
+      }
     });
     setZones(loadedZones);
     setScratchScore(todayReport.scratchScore ?? null);
@@ -1249,7 +1298,12 @@ export default function Home() {
   const handleFinish = () => {
     if (!activeProfile || zones.size === 0) return;
     const entries = new Map<string, ZoneEntry>();
-    zones.forEach((v, k) => entries.set(k, { condition: v.condition, severity: v.severity, medication: v.medication }));
+    zones.forEach((v, k) =>
+      entries.set(k, {
+        conditions: v.conditions.map((c) => ({ condition: c.condition, severity: c.severity })),
+        medication: v.medication,
+      })
+    );
     saveReport(activeProfile.id, entries, scratchScore ?? undefined);
     goTo("done", 1);
   };
