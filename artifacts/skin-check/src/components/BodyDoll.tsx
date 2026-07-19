@@ -77,15 +77,15 @@ const ARM_LEFT_FORE   = "M 155.1,211.6 L 174.9,214.4 L 168.0,263.9 L 148.2,261.1
 
 export const frontZonesDef: ZoneDef[] = [
   // ── Face ─────────────────────────────────────────────────────────────────
-  { id: "scalp",            d: "M70,9 Q100,-1 130,9 Q133,28 100,36 Q67,28 70,9 Z",                                    label: "Scalp",          cx: 100, cy: 18 },
-  { id: "forehead",         d: "M68,28 Q100,20 132,28 Q130,52 100,56 Q70,52 68,28 Z",                                 label: "Forehead",       cx: 100, cy: 38 },
-  { id: "right_ear",        d: "M60,46 Q50,50 50,62 Q50,73 60,76 Q67,71 66,62 Q66,52 60,46 Z",                       label: "Right Ear",      cx: 53,  cy: 62 },
-  { id: "left_ear",         d: "M140,46 Q150,50 150,62 Q150,73 140,76 Q133,71 134,62 Q134,52 140,46 Z",              label: "Left Ear",       cx: 147, cy: 62 },
-  { id: "right_cheek",      d: "M68,50 Q60,68 74,84 Q88,76 90,60 Q80,48 68,50 Z",                                    label: "Right Cheek",    cx: 74,  cy: 66 },
-  { id: "left_cheek",       d: "M132,50 Q140,68 126,84 Q112,76 110,60 Q120,48 132,50 Z",                             label: "Left Cheek",     cx: 126, cy: 66 },
-  { id: "nose",             d: "M93,50 Q100,44 107,50 Q110,62 107,70 Q100,74 93,70 Q90,62 93,50 Z",                  label: "Nose",           cx: 100, cy: 60 },
-  { id: "lips",             d: "M86,62 Q100,56 114,62 Q113,74 100,76 Q87,74 86,62 Z",                                 label: "Lips",           cx: 100, cy: 68 },
-  { id: "chin",             d: "M87,68 Q100,76 113,68 Q113,76 100,77 Q87,76 87,68 Z",                                 label: "Chin",           cx: 100, cy: 73 },
+  { id: "scalp",            d: "M70,9 Q100,-1 130,9 Q133,28 100,36 Q67,28 70,9 Z",  label: "Scalp",          cx: 100, cy: 18 },
+  { id: "forehead",         d: el(100, 36, 30, 12),                                   label: "Forehead",       cx: 100, cy: 36 },
+  { id: "right_ear",        d: "M60,46 Q50,50 50,64 Q50,76 60,79 Q67,74 66,64 Q66,52 60,46 Z",  label: "Right Ear",  cx: 53, cy: 63 },
+  { id: "left_ear",         d: "M140,46 Q150,50 150,64 Q150,76 140,79 Q133,74 134,64 Q134,52 140,46 Z", label: "Left Ear", cx: 147, cy: 63 },
+  { id: "right_cheek",      d: el(75, 63, 15, 18),                                    label: "Right Cheek",    cx: 75,  cy: 63 },
+  { id: "left_cheek",       d: el(125, 63, 15, 18),                                   label: "Left Cheek",     cx: 125, cy: 63 },
+  { id: "nose",             d: el(100, 57, 13, 15),                                   label: "Nose",           cx: 100, cy: 57 },
+  { id: "lips",             d: el(100, 71, 17, 9),                                    label: "Mouth",          cx: 100, cy: 71 },
+  { id: "chin",             d: el(100, 78, 14, 6),                                    label: "Chin",           cx: 100, cy: 78 },
 
   // ── Neck ─────────────────────────────────────────────────────────────────
   { id: "neck",             d: rr(88, 77, 24, 22, 11),      label: "Neck",           cx: 100, cy: 88 },
@@ -102,7 +102,7 @@ export const frontZonesDef: ZoneDef[] = [
 
   // ── Arms — viewer-left (body RIGHT) — polygon zones match rotated rects ───
   { id: "right_upper_arm",  d: ARM_RIGHT_UPPER,              label: "Right Upper Arm",  cx: 45,  cy: 166 },
-  { id: "right_elbow",      d: el(35, 200, 14, 12),          label: "Right Elbow",      cx: 35,  cy: 200 },
+  { id: "right_inner_elbow", d: el(40, 197, 17, 13),         label: "Right Inner Elbow", cx: 40, cy: 197 },
   { id: "right_forearm",    d: ARM_RIGHT_FORE,               label: "Right Forearm",    cx: 39,  cy: 238 },
   { id: "right_wrist",      d: el(42, 267, 12, 7),           label: "Right Wrist",      cx: 42,  cy: 267 },
   { id: "right_hand",       d: el(42, 287, 14, 20),          label: "Right Hand",       cx: 42,  cy: 287 },
@@ -228,25 +228,27 @@ function FrontSilhouette() {
       <ellipse fill={SKIN} cx="134" cy="55" rx="6"  ry="10" />
 
       {/* ── Eyebrows ── */}
-      <path d="M83,43 Q90,40 97,42" fill="none" stroke={LINE} strokeWidth="1.6" strokeLinecap="round" opacity="0.72" />
-      <path d="M103,42 Q110,40 117,43" fill="none" stroke={LINE} strokeWidth="1.6" strokeLinecap="round" opacity="0.72" />
+      <path d="M80,44 Q88,40 96,42.5" fill="none" stroke={LINE} strokeWidth="2.2" strokeLinecap="round" opacity="0.80" />
+      <path d="M104,42.5 Q112,40 120,44" fill="none" stroke={LINE} strokeWidth="2.2" strokeLinecap="round" opacity="0.80" />
 
       {/* ── Eyes ── */}
-      <ellipse fill={LINE} cx="88" cy="50" rx="4.5" ry="3.8" opacity="0.32" />
-      <ellipse fill={LINE} cx="112" cy="50" rx="4.5" ry="3.8" opacity="0.32" />
+      <ellipse fill={LINE} cx="88" cy="50" rx="6" ry="4.8" opacity="0.50" />
+      <ellipse fill={LINE} cx="112" cy="50" rx="6" ry="4.8" opacity="0.50" />
+      <ellipse fill="white" cx="90" cy="49" rx="1.8" ry="1.6" opacity="0.70" />
+      <ellipse fill="white" cx="114" cy="49" rx="1.8" ry="1.6" opacity="0.70" />
 
       {/* ── Nose ── */}
       <path
-        d="M 97,54 Q 100,65 97,67 Q 100,71 103,67 Q 100,65 103,54"
+        d="M 96,54 Q 100,67 96,69 Q 100,74 104,69 Q 100,67 104,54"
         fill="none"
         stroke={LINE}
-        strokeWidth="1.5"
+        strokeWidth="1.8"
         strokeLinecap="round"
-        opacity="0.75"
+        opacity="0.80"
       />
 
       {/* ── Mouth ── */}
-      <path d="M90,71 Q100,76 110,71" fill="none" stroke={LINE} strokeWidth="1.3" strokeLinecap="round" opacity="0.6" />
+      <path d="M86,72 Q100,78 114,72" fill="none" stroke={LINE} strokeWidth="1.6" strokeLinecap="round" opacity="0.70" />
 
       {/* ── Neck ── */}
       <rect   fill={SKIN}  x="88" y="77" width="24" height="22" rx="11" />

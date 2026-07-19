@@ -190,7 +190,8 @@ function ChildCard({ profile, reports, colorClass, onSwitchToCheckin }: {
           {/* Date timeline */}
           <div className="px-4 pb-2">
             <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
-              {sorted.map((r, i) => {
+              {[...sorted].reverse().map((r, revI) => {
+                const i = sorted.length - 1 - revI;
                 const sev = maxSeverity(r);
                 const isSelected = i === selectedIdx;
                 return (

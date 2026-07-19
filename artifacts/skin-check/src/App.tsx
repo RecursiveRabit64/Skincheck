@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ProfileProvider, useProfile } from "./context/ProfileContext";
 import { CheckInProvider, useCheckIn } from "./context/CheckInContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Home from "@/pages/Home";
 import Onboarding from "@/pages/Onboarding";
 import { useCallback } from "react";
@@ -120,14 +121,16 @@ function AppShell() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ProfileProvider>
-        <CheckInProvider>
-          <TooltipProvider>
-            <AppShell />
-            <Toaster />
-          </TooltipProvider>
-        </CheckInProvider>
-      </ProfileProvider>
+      <ThemeProvider>
+        <ProfileProvider>
+          <CheckInProvider>
+            <TooltipProvider>
+              <AppShell />
+              <Toaster />
+            </TooltipProvider>
+          </CheckInProvider>
+        </ProfileProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

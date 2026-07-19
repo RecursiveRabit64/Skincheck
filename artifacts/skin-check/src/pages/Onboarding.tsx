@@ -82,6 +82,10 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
   const handleSelectType = (type: UserType) => {
     if (type === userType) return;
     setUserType(type);
+    if (type === "parent") {
+      setAgeRange("35-55");
+      return;
+    }
     const newTypeDef = PROFILE_TYPES.find((t) => t.type === type)!;
     const validValues = newTypeDef.ages.map((a) => a.value);
     if (ageRange && !validValues.includes(ageRange)) {
@@ -89,12 +93,13 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
     }
   };
 
-  const canCreate = userType !== null && nameInput.trim().length > 0 && ageRange !== null;
+  const canCreate = userType !== null && nameInput.trim().length > 0 && (ageRange !== null || userType === "parent");
 
   const handleCreate = () => {
-    if (!canCreate || !userType || !ageRange) return;
+    if (!canCreate || !userType) return;
     const name = nameInput.trim() || DEFAULT_NAME[userType];
-    const profile = addProfile({ name, userType, ageRange });
+    const resolvedAge: AgeRange = ageRange ?? "35-55";
+    const profile = addProfile({ name, userType, ageRange: resolvedAge });
     onDone?.(profile);
   };
 
@@ -219,9 +224,9 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
                 </p>
               </div>
 
-              {/* Age range — only shown once a type is selected */}
+              {/* Age range — only shown once a non-parent type is selected */}
               <AnimatePresence mode="wait">
-                {selectedTypeDef && (
+                {selectedTypeDef && selectedTypeDef.type !== "parent" && (
                   <motion.div
                     key={selectedTypeDef.type}
                     initial={{ opacity: 0, y: 6 }}

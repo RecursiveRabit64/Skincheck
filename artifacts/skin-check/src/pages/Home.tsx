@@ -627,36 +627,28 @@ function Phase1({
       setInspectZone(id);
       return;
     }
-    const existing = zones.get(id);
-    if (existing?.conditions.some((c) => c.condition === currentCondition)) {
-      // Zone already has this condition — open tray to adjust severity
-      setActiveTrayZone(id);
-      return;
-    }
-    pushHistory(zones);
-    setZones((prev) => {
-      const next = new Map(prev);
-      const ex = next.get(id);
-      if (ex) {
-        next.set(id, { ...ex, conditions: [...ex.conditions, { condition: currentCondition, severity: 3 }] });
-      } else {
-        next.set(id, { conditions: [{ condition: currentCondition, severity: 3 }] });
-      }
-      return next;
-    });
+    // Just open the tray — don't pre-add the condition so no severity is pre-selected
     setActiveTrayZone(id);
-  }, [phase1Mode, currentCondition, zones, pushHistory, setZones]);
+  }, [phase1Mode]);
 
   const handleSeveritySelect = (severity: number) => {
     if (!activeTrayZone) return;
     setZones((prev) => {
       const next = new Map(prev);
       const existing = next.get(activeTrayZone);
+      const hasCondition = existing?.conditions.some((c) => c.condition === currentCondition) ?? false;
+      if (!hasCondition) pushHistory(prev);
       if (existing) {
-        const updatedConditions = existing.conditions.map((c) =>
-          c.condition === currentCondition ? { ...c, severity } : c
-        );
-        next.set(activeTrayZone, { ...existing, conditions: updatedConditions });
+        if (hasCondition) {
+          const updated = existing.conditions.map((c) =>
+            c.condition === currentCondition ? { ...c, severity } : c
+          );
+          next.set(activeTrayZone, { ...existing, conditions: updated });
+        } else {
+          next.set(activeTrayZone, { ...existing, conditions: [...existing.conditions, { condition: currentCondition, severity }] });
+        }
+      } else {
+        next.set(activeTrayZone, { conditions: [{ condition: currentCondition, severity }] });
       }
       return next;
     });
@@ -665,17 +657,20 @@ function Phase1({
 
   const handleClearZone = () => {
     if (!activeTrayZone) return;
+    const existing = zones.get(activeTrayZone);
+    const hasCondition = existing?.conditions.some((c) => c.condition === currentCondition) ?? false;
+    if (!hasCondition) {
+      setActiveTrayZone(null);
+      return;
+    }
     setZones((prev) => {
       pushHistory(prev);
       const next = new Map(prev);
-      const existing = next.get(activeTrayZone);
-      if (existing) {
-        const remaining = existing.conditions.filter((c) => c.condition !== currentCondition);
-        if (remaining.length === 0) {
-          next.delete(activeTrayZone);
-        } else {
-          next.set(activeTrayZone, { ...existing, conditions: remaining });
-        }
+      const ex = next.get(activeTrayZone);
+      if (ex) {
+        const remaining = ex.conditions.filter((c) => c.condition !== currentCondition);
+        if (remaining.length === 0) next.delete(activeTrayZone);
+        else next.set(activeTrayZone, { ...ex, conditions: remaining });
       }
       return next;
     });

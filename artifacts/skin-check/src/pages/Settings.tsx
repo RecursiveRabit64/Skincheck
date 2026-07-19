@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, X, ChevronRight, Pencil, Trash2, Plus, Users, Shield,
-  Info, Baby, GraduationCap, User, Check, Home,
+  Info, Baby, GraduationCap, User, Check, Home, Sun, Moon, Smartphone,
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -297,6 +298,7 @@ function MainScreen({
 }) {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { theme, setTheme } = useTheme();
 
   const allSelected = profiles.length > 0 && selectedIds.size === profiles.length;
 
@@ -387,7 +389,7 @@ function MainScreen({
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                       <Icon className="w-3 h-3" />
-                      {TYPE_LABEL[p.userType]} · {p.ageRange}
+                      {TYPE_LABEL[p.userType]}{p.userType !== "parent" ? ` · ${p.ageRange}` : ""}
                     </div>
                   </div>
                   {!selectMode && (
@@ -458,6 +460,38 @@ function MainScreen({
         </SettingsCard>
       </div>
 
+      {/* Appearance */}
+      <div>
+        <SectionLabel>Appearance</SectionLabel>
+        <SettingsCard>
+          <div className="px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center">
+                {theme === "dark" ? <Moon className="w-4 h-4 text-foreground" /> : theme === "light" ? <Sun className="w-4 h-4 text-foreground" /> : <Smartphone className="w-4 h-4 text-foreground" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Theme</p>
+                <p className="text-xs text-muted-foreground">{theme === "auto" ? "Auto (time of day)" : theme === "dark" ? "Dark mode" : "Light mode"}</p>
+              </div>
+            </div>
+            <div className="flex gap-1 bg-muted/50 p-1 rounded-xl">
+              {(["light", "auto", "dark"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
+                    theme === t ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t === "light" ? <Sun className="w-3.5 h-3.5" /> : t === "dark" ? <Moon className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SettingsCard>
+      </div>
+
       {/* App */}
       <div>
         <SectionLabel>App</SectionLabel>
@@ -490,6 +524,10 @@ function EditProfileScreen({
   const handleTypeChange = (type: UserType) => {
     if (type === userType) return;
     setUserType(type);
+    if (type === "parent") {
+      setAgeRange("35-55");
+      return;
+    }
     const def = PROFILE_TYPE_DEFS.find((t) => t.type === type)!;
     const validValues = def.ages.map((a) => a.value);
     if (!validValues.includes(ageRange)) setAgeRange(def.ages[0].value);
@@ -547,30 +585,32 @@ function EditProfileScreen({
         </p>
       </div>
 
-      {/* Age range */}
-      <div>
-        <SectionLabel>Age Range</SectionLabel>
-        <div className={cn("grid gap-2", typeDef.ages.length <= 2 ? "grid-cols-2" : "grid-cols-3")}>
-          {typeDef.ages.map(({ label, value }) => {
-            const selected = ageRange === value;
-            return (
-              <button
-                key={value}
-                onClick={() => setAgeRange(value)}
-                className={cn(
-                  "py-3 rounded-2xl border-2 text-sm font-semibold text-center transition-all active:scale-[0.97]",
-                  selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-white text-muted-foreground hover:border-primary/40"
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
+      {/* Age range — hidden for parent/caregiver */}
+      {userType !== "parent" && (
+        <div>
+          <SectionLabel>Age Range</SectionLabel>
+          <div className={cn("grid gap-2", typeDef.ages.length <= 2 ? "grid-cols-2" : "grid-cols-3")}>
+            {typeDef.ages.map(({ label, value }) => {
+              const selected = ageRange === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => setAgeRange(value)}
+                  className={cn(
+                    "py-3 rounded-2xl border-2 text-sm font-semibold text-center transition-all active:scale-[0.97]",
+                    selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-white text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {!validAge && (
+            <p className="text-[11px] text-amber-600 mt-1.5 px-1">Select an age range for the new profile type.</p>
+          )}
         </div>
-        {!validAge && (
-          <p className="text-[11px] text-amber-600 mt-1.5 px-1">Select an age range for the new profile type.</p>
-        )}
-      </div>
+      )}
 
       {/* Save */}
       <motion.div whileTap={canSave ? { scale: 0.97 } : {}}>
@@ -1185,7 +1225,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
             {screen === "main" && (
               <MainScreen
                 activeProfile={activeProfile}
-                profiles={profiles}
+                profiles={profiles.filter((p) => p.id !== pendingDeleteProfile?.id)}
                 families={families}
                 onNav={(s) => push(s)}
                 onEditProfile={handleEditProfile}
