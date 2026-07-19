@@ -65,7 +65,11 @@ function AppShell() {
   } = useProfile();
   const { deleteReportsForProfile } = useCheckIn();
 
-  const showOnboarding = profiles.length === 0 || pendingLastDeleteIds.length > 0;
+  // Show onboarding only when there are no profiles that are NOT pending deletion.
+  // This means: if the user creates a new profile while a delete is pending, navigate
+  // to Home immediately instead of staying stuck on Onboarding.
+  const nonPendingProfiles = profiles.filter((p) => !pendingLastDeleteIds.includes(p.id));
+  const showOnboarding = nonPendingProfiles.length === 0;
 
   const handleExpire = useCallback(() => {
     if (pendingLastDeleteIds.length === 0) return;
@@ -73,7 +77,8 @@ function AppShell() {
       removeProfile(id);
       deleteReportsForProfile(id);
     });
-  }, [pendingLastDeleteIds, removeProfile, deleteReportsForProfile]);
+    cancelPendingLastDelete();
+  }, [pendingLastDeleteIds, removeProfile, deleteReportsForProfile, cancelPendingLastDelete]);
 
   const handleUndo = useCallback(() => {
     cancelPendingLastDelete();

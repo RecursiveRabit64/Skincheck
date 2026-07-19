@@ -223,6 +223,7 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
 
   const [step, setStep] = useState<number>(skipWelcome ? 1 : 0);
   const [dir, setDir] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Profile state
   const [profileFor, setProfileFor] = useState<"child" | "caregiver" | null>(null);
@@ -266,6 +267,8 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
   const handleContinueFromNameAge = () => go(3);
 
   const handleSkipSkinBg = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const profile = buildAndCreate();
     onDone?.(profile);
   };
@@ -281,6 +284,8 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
   };
 
   const handleFinish = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const profile = buildAndCreate({ diagnosedConditions: conditions, allergies, currentTreatments: treatments });
     onDone?.(profile);
   };
