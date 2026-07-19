@@ -29,21 +29,25 @@ const PROFILE_TYPE_DEFS: {
   ages: { label: string; value: AgeRange }[];
 }[] = [
   {
-    type: "child", label: "Child", displayLabel: "Child", sub: "Ages 5–12", icon: Baby,
-    ages: [{ label: "5–7", value: "5-7" }, { label: "8–12", value: "8-12" }],
+    type: "child", label: "Child", displayLabel: "Child", sub: "Ages 1–12", icon: Baby,
+    ages: [{ label: "1–5", value: "1-5" }, { label: "6–9", value: "6-9" }, { label: "10–12", value: "10-12" }],
   },
   {
-    type: "teen", label: "Teen", displayLabel: "Teen", sub: "Ages 13–17", icon: GraduationCap,
-    ages: [{ label: "13–17", value: "13-17" }],
+    type: "teen", label: "Teen", displayLabel: "Teen", sub: "Ages 13–18", icon: GraduationCap,
+    ages: [{ label: "13–15", value: "13-15" }, { label: "16–18", value: "16-18" }],
   },
   {
-    type: "parent", label: "Caregiver", displayLabel: "Caregiver", sub: "Ages 18+", icon: User,
-    ages: [{ label: "18–35", value: "18-35" }, { label: "35–55", value: "35-55" }, { label: "55+", value: "55+" }],
+    type: "adult", label: "Adult", displayLabel: "Adult", sub: "Ages 18+", icon: User,
+    ages: [{ label: "18+", value: "18+" }],
+  },
+  {
+    type: "caregiver", label: "Caregiver", displayLabel: "Caregiver", sub: "Looking after others", icon: User,
+    ages: [],
   },
 ];
 
-const TYPE_LABEL: Record<UserType, string> = { child: "Child", teen: "Teen", parent: "Caregiver" };
-const TYPE_ICON: Record<UserType, React.ElementType> = { child: Baby, teen: GraduationCap, parent: User };
+const TYPE_LABEL: Record<UserType, string> = { child: "Child", teen: "Teen", adult: "Adult", caregiver: "Caregiver", parent: "Caregiver" };
+const TYPE_ICON: Record<UserType, React.ElementType> = { child: Baby, teen: GraduationCap, adult: User, caregiver: User, parent: User };
 
 const AVATAR_COLORS = [
   "bg-blue-100 text-blue-700",
@@ -517,15 +521,15 @@ function EditProfileScreen({
   const [userType, setUserType] = useState<UserType>(profile.userType);
   const [ageRange, setAgeRange] = useState<AgeRange>(profile.ageRange);
 
-  const typeDef = PROFILE_TYPE_DEFS.find((t) => t.type === userType)!;
+  const typeDef = PROFILE_TYPE_DEFS.find((t) => t.type === userType) ?? PROFILE_TYPE_DEFS[0];
   const validAge = typeDef.ages.some((a) => a.value === ageRange);
   const canSave = name.trim().length > 0;
 
   const handleTypeChange = (type: UserType) => {
     if (type === userType) return;
     setUserType(type);
-    if (type === "parent") {
-      setAgeRange("35-55");
+    if (type === "caregiver" || type === "adult" || type === "parent") {
+      setAgeRange("18+");
       return;
     }
     const def = PROFILE_TYPE_DEFS.find((t) => t.type === type)!;
@@ -543,7 +547,7 @@ function EditProfileScreen({
       {/* Profile type */}
       <div>
         <SectionLabel>Profile Type</SectionLabel>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {PROFILE_TYPE_DEFS.map(({ type, displayLabel, sub, icon: Icon }) => {
             const selected = userType === type;
             return (
@@ -585,11 +589,11 @@ function EditProfileScreen({
         </p>
       </div>
 
-      {/* Age range — hidden for parent/caregiver */}
-      {userType !== "parent" && (
+      {/* Age range — hidden for caregiver, parent, adult */}
+      {typeDef.ages.length > 1 && (
         <div>
           <SectionLabel>Age Range</SectionLabel>
-          <div className={cn("grid gap-2", typeDef.ages.length <= 2 ? "grid-cols-2" : "grid-cols-3")}>
+          <div className={cn("grid gap-2", typeDef.ages.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
             {typeDef.ages.map(({ label, value }) => {
               const selected = ageRange === value;
               return (

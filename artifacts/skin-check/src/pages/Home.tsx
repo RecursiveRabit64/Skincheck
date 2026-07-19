@@ -24,6 +24,45 @@ interface ConditionGroup {
 }
 
 const CONDITION_GROUPS_BY_AGE: Record<AgeRange, ConditionGroup[]> = {
+  // ── New age ranges ──────────────────────────────────────────────────────────
+  "1-5": [
+    { label: "Rash & Skin",   conditions: ["Rash", "Hives", "Bug Bite", "Sunburn"] },
+    { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
+    { label: "Infection",     conditions: ["Ringworm", "Warts"] },
+  ],
+  "6-9": [
+    { label: "Rash & Skin",   conditions: ["Rash", "Hives", "Bug Bite", "Sunburn"] },
+    { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
+    { label: "Infection",     conditions: ["Ringworm", "Warts"] },
+  ],
+  "10-12": [
+    { label: "Rash & Skin",   conditions: ["Rash", "Hives", "Bug Bite", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
+    { label: "Skin",          conditions: ["Acne", "Psoriasis", "Keratosis Pilaris"] },
+    { label: "Infection",     conditions: ["Ringworm", "Fungal Rash", "Warts"] },
+  ],
+  "13-15": [
+    { label: "Acne",          conditions: ["Acne", "Blackheads", "Whiteheads", "Cystic Acne"] },
+    { label: "Rash",          conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
+    { label: "Skin",          conditions: ["Psoriasis", "Keratosis Pilaris"] },
+    { label: "Infection",     conditions: ["Ringworm", "Athlete's Foot", "Warts"] },
+  ],
+  "16-18": [
+    { label: "Acne",          conditions: ["Acne", "Blackheads", "Whiteheads", "Cystic Acne"] },
+    { label: "Rash",          conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
+    { label: "Skin",          conditions: ["Psoriasis", "Keratosis Pilaris"] },
+    { label: "Infection",     conditions: ["Ringworm", "Athlete's Foot", "Warts"] },
+  ],
+  "18+": [
+    { label: "Acne",          conditions: ["Acne", "Blackheads", "Cystic Acne"] },
+    { label: "Rash",          conditions: ["Rash", "Hives", "Sunburn", "Contact Dermatitis"] },
+    { label: "Eczema",        conditions: ["Eczema", "Seborrheic Dermatitis", "Dry Skin"] },
+    { label: "Inflammatory",  conditions: ["Psoriasis", "Rosacea"] },
+    { label: "Infection",     conditions: ["Ringworm", "Athlete's Foot", "Warts"] },
+  ],
+  // ── Legacy age ranges (backward compat) ────────────────────────────────────
   "5-7":   [
     { label: "Rash & Skin",   conditions: ["Rash", "Hives", "Bug Bite", "Sunburn"] },
     { label: "Eczema",        conditions: ["Eczema", "Dry Skin"] },
@@ -137,7 +176,7 @@ const SEVERITY_OLDER: SeverityOption[] = [
 ];
 
 function getSeverityOptions(ageRange: AgeRange): SeverityOption[] {
-  return ageRange === "5-7" ? SEVERITY_YOUNG : SEVERITY_OLDER;
+  return (ageRange === "1-5" || ageRange === "5-7" || ageRange === "6-9") ? SEVERITY_YOUNG : SEVERITY_OLDER;
 }
 
 // ── Scratch Frequency ─────────────────────────────────────────────────────────

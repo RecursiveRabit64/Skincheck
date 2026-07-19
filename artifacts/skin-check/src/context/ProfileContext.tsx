@@ -1,7 +1,17 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
-export type UserType = "child" | "teen" | "parent";
-export type AgeRange = "5-7" | "8-12" | "13-17" | "18-35" | "35-55" | "55+";
+export type UserType = "child" | "teen" | "adult" | "caregiver" | "parent";
+export type AgeRange =
+  // New ranges
+  | "1-5" | "6-9" | "10-12" | "13-15" | "16-18" | "18+"
+  // Legacy ranges (backward compat)
+  | "5-7" | "8-12" | "13-17" | "18-35" | "35-55" | "55+";
+
+export interface SkinBackground {
+  diagnosedConditions: string[];
+  allergies: string[];
+  currentTreatments: string[];
+}
 
 export interface Family {
   id: string;
@@ -15,6 +25,7 @@ export interface StoredProfile {
   ageRange: AgeRange;
   createdAt: string;
   familyId?: string;
+  skinBackground?: SkinBackground;
 }
 
 interface ProfileStore {
@@ -28,8 +39,9 @@ interface ProfileContextValue {
   families: Family[];
   activeProfile: StoredProfile | null;
   activeProfileId: string | null;
-  addProfile: (data: { name: string; userType: UserType; ageRange: AgeRange }) => StoredProfile;
+  addProfile: (data: { name: string; userType: UserType; ageRange: AgeRange; skinBackground?: SkinBackground }) => StoredProfile;
   updateProfile: (id: string, patch: Partial<Pick<StoredProfile, "name" | "ageRange" | "userType">>) => void;
+  updateSkinBackground: (id: string, bg: SkinBackground) => void;
   switchProfile: (id: string) => void;
   removeProfile: (id: string) => void;
   addFamily: (name: string) => Family;
@@ -43,6 +55,14 @@ interface ProfileContextValue {
 }
 
 const STORAGE_KEY = "skincheck_v3";
+
+const DEFAULT_NAME: Record<UserType, string> = {
+  child: "Child",
+  teen: "Teen",
+  adult: "Adult",
+  caregiver: "Caregiver",
+  parent: "Caregiver",
+};
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -82,13 +102,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addProfile = useCallback(
-    (data: { name: string; userType: UserType; ageRange: AgeRange }): StoredProfile => {
+    (data: { name: string; userType: UserType; ageRange: AgeRange; skinBackground?: SkinBackground }): StoredProfile => {
       const newProfile: StoredProfile = {
         id: generateId(),
-        name: data.name.trim() || (data.userType === "parent" ? "Caregiver" : data.userType === "teen" ? "Teen" : "Child"),
+        name: data.name.trim() || DEFAULT_NAME[data.userType],
         userType: data.userType,
         ageRange: data.ageRange,
         createdAt: new Date().toISOString(),
+        ...(data.skinBackground ? { skinBackground: data.skinBackground } : {}),
       };
       let created = newProfile;
       persist((prev) => {
@@ -105,6 +126,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       persist((prev) => ({
         ...prev,
         profiles: prev.profiles.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      }));
+    },
+    [persist]
+  );
+
+  const updateSkinBackground = useCallback(
+    (id: string, bg: SkinBackground) => {
+      persist((prev) => ({
+        ...prev,
+        profiles: prev.profiles.map((p) => (p.id === id ? { ...p, skinBackground: bg } : p)),
       }));
     },
     [persist]
@@ -200,6 +231,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         activeProfileId: store.activeProfileId,
         addProfile,
         updateProfile,
+        updateSkinBackground,
         switchProfile,
         removeProfile,
         addFamily,

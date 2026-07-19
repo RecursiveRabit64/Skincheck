@@ -1,0 +1,13 @@
+Remake the account creation process.
+When the user presses “create profile”, they will be taken to a page that asks “Who is this profile for?” and two options below: child and caregiver.
+If they press “child”, they will be taken to another screen that asks for their name and below that is the possible age ranges. The age ranges are: child(1-5, 6-9, 10-12), teen(13-15, 16-18), and adult(18+). Adult does not mean parent/caregiver, it just means they are 18+. These different age ranges will determine the complexity of the questions and possible conditions that the body may have during the daily check-in. Don’t forget to change the homepage where it says “designed for ages 5 through adult” because we changed the minimum to 1.
+
+After that they will be taken to the next page, which is an optional “skin background” page. At the top it should say something similar to “This helps personalize reports. You can skip and add later.” and under is a large “skip for now” button, but under that button is a “Let’s do it!” button. When pressed, the button will initialize the skin background check.
+
+On the first page of the skin background process,  it asks if a doctor has diagnosed any conditions such as eczema, dry skin, acne, contact dermatitis, etc. These options can be put in a checkbox list. 
+
+The next page is the allergies, which can be similar to the diagnosed conditions part.
+
+ Finally, on the third page is the “current treatments” section. Similar to the previous two there is a checkbox of the most common treatments used to treat the conditions that the user previously entered on the two previous pages(the allergies and the diagnosed conditions.) For example, if the user entered “contact dermatitis”, one of the possible treatments shouldn’t be “solvent.” It should say, “We'll use this to track what seems to help over time.”
+
+You should also add a progress indicator bar at the top that shows the page they are on(e.g 3 points on the bar are lit up out of 4)to visualize the progress the user is making to keep them motivated to fill out the information
