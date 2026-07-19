@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, X, ChevronRight, Pencil, Trash2, Plus, Users, Shield,
@@ -92,7 +92,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function SettingsCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("bg-white rounded-2xl border border-border overflow-hidden", className)}>{children}</div>;
+  return <div className={cn("bg-card rounded-2xl border border-border overflow-hidden", className)}>{children}</div>;
 }
 
 function SettingsRow({
@@ -144,10 +144,12 @@ function SettingsRow({
 
 function UndoToast({
   profile,
+  bottomOffset = 24,
   onUndo,
   onExpire,
 }: {
   profile: StoredProfile;
+  bottomOffset?: number;
   onUndo: () => void;
   onExpire: () => void;
 }) {
@@ -157,7 +159,8 @@ function UndoToast({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 16, scale: 0.97 }}
       transition={{ duration: 0.22 }}
-      className="fixed bottom-6 right-4 left-4 z-[9999] mx-auto max-w-xs"
+      className="fixed right-4 left-4 z-[9999] mx-auto max-w-xs"
+      style={{ bottom: `${bottomOffset}px` }}
     >
       <div className="relative bg-foreground text-background rounded-2xl shadow-xl overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3.5">
@@ -556,7 +559,7 @@ function EditProfileScreen({
                 onClick={() => handleTypeChange(type)}
                 className={cn(
                   "flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl border-2 text-center transition-all active:scale-[0.97]",
-                  selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-white text-muted-foreground hover:border-primary/40"
+                  selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/40"
                 )}
               >
                 <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", selected ? "bg-primary/15" : "bg-muted")}>
@@ -602,7 +605,7 @@ function EditProfileScreen({
                   onClick={() => setAgeRange(value)}
                   className={cn(
                     "py-3 rounded-2xl border-2 text-sm font-semibold text-center transition-all active:scale-[0.97]",
-                    selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-white text-muted-foreground hover:border-primary/40"
+                    selected ? "border-primary bg-primary/8 text-primary" : "border-border bg-card text-muted-foreground hover:border-primary/40"
                   )}
                 >
                   {label}
@@ -1072,8 +1075,8 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
   const [detailFamilyId, setDetailFamilyId] = useState<string | null>(null);
   const [showCreateFamily, setShowCreateFamily] = useState(false);
   const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<StoredProfile | null>(null);
-  const [pendingDeleteProfile, setPendingDeleteProfile] = useState<StoredProfile | null>(null);
-  const pendingDeleteRef = useRef<string | null>(null);
+  const MAX_UNDO = 3;
+  const [pendingDeleteGroups, setPendingDeleteGroups] = useState<Array<{ profile: StoredProfile; key: string }>>([]);
   const [showAddProfile, setShowAddProfile] = useState(false);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [batchDeleteConfirmIds, setBatchDeleteConfirmIds] = useState<string[] | null>(null);
@@ -1110,27 +1113,27 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
       return;
     }
 
-    pendingDeleteRef.current = profileToDelete.id;
-    setPendingDeleteProfile(profileToDelete);
+    if (pendingDeleteGroups.length >= MAX_UNDO) {
+      removeProfile(profileToDelete.id);
+      deleteReportsForProfile(profileToDelete.id);
+    } else {
+      const key = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setPendingDeleteGroups((prev) => [...prev, { profile: profileToDelete, key }]);
+    }
     if (profileToDelete.id === activeProfile?.id) {
       const other = remaining[0];
       if (other) switchProfile(other.id);
     }
-  }, [deleteConfirmProfile, activeProfile, profiles, switchProfile, setPendingLastDelete, onClose]);
+  }, [deleteConfirmProfile, activeProfile, profiles, pendingDeleteGroups, switchProfile, setPendingLastDelete, removeProfile, deleteReportsForProfile, onClose]);
 
-  const handleUndo = useCallback(() => {
-    pendingDeleteRef.current = null;
-    setPendingDeleteProfile(null);
+  const handleUndo = useCallback((key: string) => {
+    setPendingDeleteGroups((prev) => prev.filter((g) => g.key !== key));
   }, []);
 
-  const handleDeleteExpire = useCallback(() => {
-    const id = pendingDeleteRef.current;
-    if (id) {
-      removeProfile(id);
-      deleteReportsForProfile(id);
-    }
-    pendingDeleteRef.current = null;
-    setPendingDeleteProfile(null);
+  const handleDeleteExpire = useCallback((key: string, profileId: string) => {
+    removeProfile(profileId);
+    deleteReportsForProfile(profileId);
+    setPendingDeleteGroups((prev) => prev.filter((g) => g.key !== key));
   }, [removeProfile, deleteReportsForProfile]);
 
   const handleBatchDeleteRequest = useCallback((ids: string[]) => {
@@ -1229,7 +1232,7 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
             {screen === "main" && (
               <MainScreen
                 activeProfile={activeProfile}
-                profiles={profiles.filter((p) => p.id !== pendingDeleteProfile?.id)}
+                profiles={profiles.filter((p) => !pendingDeleteGroups.some((g) => g.profile.id === p.id))}
                 families={families}
                 onNav={(s) => push(s)}
                 onEditProfile={handleEditProfile}
@@ -1301,15 +1304,20 @@ export default function Settings({ onClose, onSwitchProfile }: SettingsProps) {
         )}
       </AnimatePresence>
 
-      {/* Undo toast */}
+      {/* Undo toasts — stacked, newest at bottom */}
       <AnimatePresence>
-        {pendingDeleteProfile && (
-          <UndoToast
-            profile={pendingDeleteProfile}
-            onUndo={handleUndo}
-            onExpire={handleDeleteExpire}
-          />
-        )}
+        {pendingDeleteGroups.map((group, i) => {
+          const fromBottom = (pendingDeleteGroups.length - 1 - i) * 68;
+          return (
+            <UndoToast
+              key={group.key}
+              profile={group.profile}
+              bottomOffset={24 + fromBottom}
+              onUndo={() => handleUndo(group.key)}
+              onExpire={() => handleDeleteExpire(group.key, group.profile.id)}
+            />
+          );
+        })}
       </AnimatePresence>
     </motion.div>
   );

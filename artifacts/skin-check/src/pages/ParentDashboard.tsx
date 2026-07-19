@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, Baby, GraduationCap, UserPlus, CalendarDays, AlertCircle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Baby, GraduationCap, User, UserPlus, CalendarDays, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BodyDoll, type ZoneData, type SkinCondition, frontZonesDef, backZonesDef } from "@/components/BodyDoll";
 import { useProfile, type StoredProfile } from "@/context/ProfileContext";
@@ -13,12 +13,12 @@ interface ParentDashboardProps {
 }
 
 const PROFILE_COLORS = [
-  "bg-blue-100 text-blue-700",
-  "bg-purple-100 text-purple-700",
-  "bg-green-100 text-green-700",
-  "bg-orange-100 text-orange-700",
-  "bg-pink-100 text-pink-700",
-  "bg-teal-100 text-teal-700",
+  "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
+  "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
 ];
 
 function getProfileColor(index: number) {
@@ -115,11 +115,24 @@ function severityColor(sev: number): string {
 
 // ── Child Card ────────────────────────────────────────────────────────────────
 
-function ChildCard({ profile, reports, colorClass, onSwitchToCheckin }: {
+function profileTypeIcon(userType: StoredProfile["userType"]) {
+  if (userType === "child") return <Baby className="inline w-3 h-3 mr-0.5" />;
+  if (userType === "teen") return <GraduationCap className="inline w-3 h-3 mr-0.5" />;
+  return <User className="inline w-3 h-3 mr-0.5" />;
+}
+
+function profileTypeBadgeClass(userType: StoredProfile["userType"]) {
+  if (userType === "child") return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+  if (userType === "teen") return "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
+  return "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300";
+}
+
+function ChildCard({ profile, reports, colorClass, onSwitchToCheckin, isSelf }: {
   profile: StoredProfile;
   reports: CheckInReport[];
   colorClass: string;
   onSwitchToCheckin: () => void;
+  isSelf?: boolean;
 }) {
   const { switchProfile } = useProfile();
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -141,20 +154,23 @@ function ChildCard({ profile, reports, colorClass, onSwitchToCheckin }: {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
       {/* Card header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0", colorClass)}>
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm truncate">{profile.name}</span>
+            {isSelf && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">You</span>
+            )}
             <span className={cn(
               "text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
-              profile.userType === "child" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"
+              profileTypeBadgeClass(profile.userType)
             )}>
-              {profile.userType === "child" ? <Baby className="inline w-3 h-3 mr-0.5" /> : <GraduationCap className="inline w-3 h-3 mr-0.5" />}
+              {profileTypeIcon(profile.userType)}
               {profile.ageRange}
             </span>
           </div>
@@ -298,9 +314,12 @@ export default function ParentDashboard({ onClose }: ParentDashboardProps) {
   const { getReportsForProfile } = useCheckIn();
   const [showAddProfile, setShowAddProfile] = useState(false);
 
-  const childProfiles = activeProfile?.familyId
-    ? profiles.filter((p) => p.userType !== "parent" && p.familyId === activeProfile.familyId)
-    : profiles.filter((p) => p.userType !== "parent" && !p.familyId);
+  const dashboardProfiles = useMemo(() => {
+    if (activeProfile?.familyId) {
+      return profiles.filter((p) => p.familyId === activeProfile.familyId);
+    }
+    return profiles;
+  }, [profiles, activeProfile]);
 
   if (showAddProfile) {
     return (
@@ -323,11 +342,11 @@ export default function ParentDashboard({ onClose }: ParentDashboardProps) {
       transition={{ type: "spring", damping: 28, stiffness: 260 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-border bg-white">
+      <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-border bg-background">
         <div>
           <h2 className="text-lg font-bold tracking-tight">Family Monitor</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {childProfiles.length} {childProfiles.length === 1 ? "profile" : "profiles"} being tracked
+            {dashboardProfiles.length} {dashboardProfiles.length === 1 ? "profile" : "profiles"} tracked
           </p>
         </div>
         <button
@@ -340,31 +359,29 @@ export default function ParentDashboard({ onClose }: ParentDashboardProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {childProfiles.length === 0 ? (
+        {dashboardProfiles.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
               <Baby className="w-8 h-8 text-muted-foreground/50" />
             </div>
             <div>
-              <p className="font-semibold text-base">No children added yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Add a child or teen profile to start tracking their check-ins.</p>
+              <p className="font-semibold text-base">No profiles yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Add profiles to start tracking skin check-ins.</p>
             </div>
             <Button className="rounded-xl" onClick={() => setShowAddProfile(true)}>
               <UserPlus className="w-4 h-4 mr-2" /> Add First Profile
             </Button>
-            <Button variant="outline" className="rounded-xl" onClick={() => setShowAddProfile(true)}>
-              <UserPlus className="w-4 h-4 mr-2" /> Add Family Members
-            </Button>
           </div>
         ) : (
           <>
-            {childProfiles.map((profile, i) => (
+            {dashboardProfiles.map((profile, i) => (
               <ChildCard
                 key={profile.id}
                 profile={profile}
                 reports={getReportsForProfile(profile.id)}
                 colorClass={getProfileColor(i)}
                 onSwitchToCheckin={onClose}
+                isSelf={profile.id === activeProfile?.id}
               />
             ))}
 

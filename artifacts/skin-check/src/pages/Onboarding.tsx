@@ -693,7 +693,8 @@ export default function Onboarding({ skipWelcome, onCancel, onDone }: Onboarding
                   className="w-full h-13 rounded-2xl text-base font-bold shadow-md"
                   onClick={handleFinish}
                 >
-                  Finish Setup <Check className="w-4 h-4 ml-1" />
+                  {treatments.length === 0 ? "None of these — Finish Setup" : `Finish Setup (${treatments.length} selected)`}
+                  <Check className="w-4 h-4 ml-1" />
                 </Button>
               </motion.div>
             )}

@@ -76,19 +76,40 @@ const ARM_LEFT_FORE   = "M 155.1,211.6 L 174.9,214.4 L 168.0,263.9 L 148.2,261.1
 // ── Front zone definitions ────────────────────────────────────────────────────
 
 export const frontZonesDef: ZoneDef[] = [
-  // ── Face ─────────────────────────────────────────────────────────────────
-  { id: "scalp",            d: "M70,9 Q100,-1 130,9 Q133,28 100,36 Q67,28 70,9 Z",  label: "Scalp",          cx: 100, cy: 18 },
-  { id: "forehead",         d: el(100, 36, 30, 12),                                   label: "Forehead",       cx: 100, cy: 36 },
-  { id: "right_ear",        d: "M60,46 Q50,50 50,64 Q50,76 60,79 Q67,74 66,64 Q66,52 60,46 Z",  label: "Right Ear",  cx: 53, cy: 63 },
-  { id: "left_ear",         d: "M140,46 Q150,50 150,64 Q150,76 140,79 Q133,74 134,64 Q134,52 140,46 Z", label: "Left Ear", cx: 147, cy: 63 },
-  { id: "right_cheek",      d: el(75, 63, 15, 18),                                    label: "Right Cheek",    cx: 75,  cy: 63 },
-  { id: "left_cheek",       d: el(125, 63, 15, 18),                                   label: "Left Cheek",     cx: 125, cy: 63 },
-  { id: "nose",             d: el(100, 57, 13, 15),                                   label: "Nose",           cx: 100, cy: 57 },
-  { id: "lips",             d: el(100, 71, 17, 9),                                    label: "Mouth",          cx: 100, cy: 71 },
-  { id: "chin",             d: el(100, 78, 14, 6),                                    label: "Chin",           cx: 100, cy: 78 },
+  // ── Face — SVG z-order: later entries render on top and win pointer events ─
+  //
+  // Rendering order (each layer wins over all earlier ones in overlap areas):
+  //   1. scalp / forehead
+  //   2. cheeks  — renders under ears and eyes
+  //   3. ears    — win over cheeks at face edge (cheek/ear boundary)
+  //   4. eyes    — win over cheeks in inner-corner overlap
+  //   5. nose    — bridge of nose wins over inner eye corners
+  //   6. lips / chin / neck
+  //
+  { id: "scalp",       d: "M70,9 Q100,-1 130,9 Q133,28 100,36 Q67,28 70,9 Z", label: "Scalp",       cx: 100, cy: 18 },
+  { id: "forehead",    d: el(100, 34, 28, 10),    label: "Forehead",    cx: 100, cy: 34 },
 
-  // ── Neck ─────────────────────────────────────────────────────────────────
-  { id: "neck",             d: rr(88, 77, 24, 22, 11),      label: "Neck",           cx: 100, cy: 88 },
+  // Cheeks — smaller, kept inward so they don't reach the ear area
+  { id: "right_cheek", d: el(78, 63, 10, 14),    label: "Right Cheek", cx: 78,  cy: 63 },
+  { id: "left_cheek",  d: el(122, 63, 10, 14),   label: "Left Cheek",  cx: 122, cy: 63 },
+
+  // Ears — AFTER cheeks so ears win in any cheek/ear border overlap
+  { id: "right_ear",   d: "M60,46 Q50,50 50,64 Q50,76 60,79 Q67,74 66,64 Q66,52 60,46 Z", label: "Right Ear", cx: 53,  cy: 63 },
+  { id: "left_ear",    d: "M140,46 Q150,50 150,64 Q150,76 140,79 Q133,74 134,64 Q134,52 140,46 Z", label: "Left Ear", cx: 147, cy: 63 },
+
+  // Eyes — AFTER cheeks so clicking inner-eye area registers as eye not cheek
+  { id: "right_eye",   d: el(88, 50, 11, 8),     label: "Right Eye",   cx: 88,  cy: 50 },
+  { id: "left_eye",    d: el(112, 50, 11, 8),     label: "Left Eye",    cx: 112, cy: 50 },
+
+  // Nose — smaller, won't cover mouth area
+  { id: "nose",        d: el(100, 61, 10, 9),    label: "Nose",        cx: 100, cy: 61 },
+  // Lips — matched to the silhouette mouth curve (y≈72–78)
+  { id: "lips",        d: el(100, 73, 14, 6),    label: "Mouth",       cx: 100, cy: 73 },
+  // Chin — below the mouth, well-separated from lips
+  { id: "chin",        d: el(100, 81, 11, 4),    label: "Chin",        cx: 100, cy: 81 },
+
+  // ── Neck — starts below chin zone ─────────────────────────────────────────
+  { id: "neck",        d: rr(88, 83, 24, 16, 8), label: "Neck",        cx: 100, cy: 91 },
 
   // ── Shoulders ─────────────────────────────────────────────────────────────
   { id: "right_shoulder",   d: el(54, 118, 22, 18),          label: "Right Shoulder", cx: 54,  cy: 118 },

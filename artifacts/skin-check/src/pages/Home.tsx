@@ -155,7 +155,7 @@ const CHIP_DOT: Record<ColorKey, string> = {
   stone: "bg-stone-400",
 };
 function conditionDotClass(condition: SkinCondition, active: boolean): string {
-  if (active) return "bg-white/90";
+  if (active) return "bg-card/90";
   const key = CONDITION_COLOR[condition] ?? "violet";
   return CHIP_DOT[key];
 }
@@ -447,8 +447,8 @@ function HomeLanding({
         <div className={cn(
           "rounded-2xl border px-4 py-4 flex items-center gap-4 shadow-sm",
           completedToday
-            ? "bg-green-50 border-green-200"
-            : "bg-white border-border"
+            ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+            : "bg-card border-border"
         )}>
           <div className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0",
@@ -459,7 +459,7 @@ function HomeLanding({
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Today's skin check</p>
             {completedToday ? (
-              <p className="text-base font-bold mt-0.5 text-green-700">Completed!</p>
+              <p className="text-base font-bold mt-0.5 text-green-700 dark:text-green-300">Completed!</p>
             ) : lastCheckinDate ? (
               <p className="text-base font-bold mt-0.5 text-foreground">Not completed yet</p>
             ) : (
@@ -513,9 +513,6 @@ function HomeLanding({
             Last check-in: <span className="font-semibold text-foreground">{lastCheckinLabel}</span>
           </p>
         )}
-        {!lastCheckinDate && !completedToday && (
-          <p className="text-center text-xs text-muted-foreground">Takes about 2 minutes</p>
-        )}
       </motion.div>
 
       {/* ── Streak bar ── */}
@@ -525,7 +522,7 @@ function HomeLanding({
         transition={{ duration: 0.35, delay: 0.2 }}
         className="mx-5 mt-6 mb-8"
       >
-        <div className="rounded-2xl border border-border bg-white px-4 py-3 flex items-center gap-3 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 flex items-center gap-3 shadow-sm">
           <span className="text-2xl leading-none">{streakEmoji(streak)}</span>
           <div>
             <p className="text-xs text-muted-foreground font-medium">Progress</p>
@@ -573,7 +570,7 @@ function SeverityTray({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: "100%", opacity: 0 }}
       transition={{ type: "spring", damping: 30, stiffness: 320 }}
-      className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border rounded-t-3xl shadow-2xl px-5 pt-4 pb-8 max-w-md mx-auto"
+      className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border rounded-t-3xl shadow-2xl px-5 pt-4 pb-8 max-w-md mx-auto"
       style={{ marginLeft: "auto", marginRight: "auto" }}
     >
       <div className="flex items-center justify-between mb-1">
@@ -610,7 +607,7 @@ function SeverityTray({
                 "flex flex-col items-center gap-1.5 py-4 rounded-2xl border-2 transition-all",
                 isSelected
                   ? `${opt.ring} ring-2 ring-offset-1 border-transparent bg-primary/5`
-                  : "border-border bg-white hover:bg-muted/30"
+                  : "border-border bg-card hover:bg-muted/30"
               )}
             >
               <span className="text-3xl leading-none">{opt.emoji}</span>
@@ -746,7 +743,7 @@ function Phase1({
           onClick={() => switchMode("add")}
           className={cn(
             "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] text-xs font-semibold transition-all",
-            phase1Mode === "add" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+            phase1Mode === "add" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
           )}
         >
           <Plus className="w-3.5 h-3.5" /> Add conditions
@@ -755,7 +752,7 @@ function Phase1({
           onClick={() => switchMode("inspect")}
           className={cn(
             "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] text-xs font-semibold transition-all",
-            phase1Mode === "inspect" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+            phase1Mode === "inspect" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
           )}
         >
           <Search className="w-3.5 h-3.5" /> View conditions
@@ -791,14 +788,14 @@ function Phase1({
       <div className="flex items-center justify-center gap-2 px-4 mb-2">
         <button
           onClick={() => setDollView("front")}
-          className={cn("flex-1 py-1 rounded-lg text-xs font-medium border transition-all", dollView === "front" ? "bg-white border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground")}
+          className={cn("flex-1 py-1 rounded-lg text-xs font-medium border transition-all", dollView === "front" ? "bg-card border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground")}
         >
           Front
         </button>
         <FlipHorizontal className="w-4 h-4 text-muted-foreground/40 shrink-0" />
         <button
           onClick={() => setDollView("back")}
-          className={cn("flex-1 py-1 rounded-lg text-xs font-medium border transition-all", dollView === "back" ? "bg-white border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground")}
+          className={cn("flex-1 py-1 rounded-lg text-xs font-medium border transition-all", dollView === "back" ? "bg-card border-border shadow-sm text-foreground" : "border-transparent text-muted-foreground")}
         >
           Back
         </button>
@@ -818,12 +815,12 @@ function Phase1({
         {phase1Mode === "add" && (
           <div className="absolute top-0 right-4 flex flex-col gap-2">
             <motion.button whileTap={{ scale: 0.88 }} onClick={handleUndo} disabled={history.current.length === 0}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm disabled:opacity-30 text-muted-foreground"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-card shadow-sm disabled:opacity-30 text-muted-foreground"
             >
               <Undo2 className="w-4 h-4" />
             </motion.button>
             <motion.button whileTap={{ scale: 0.88 }} onClick={() => { pushHistory(zones); setZones(new Map()); }}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-white shadow-sm text-muted-foreground"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-border bg-card shadow-sm text-muted-foreground"
             >
               <RotateCcw className="w-4 h-4" />
             </motion.button>
@@ -980,7 +977,7 @@ function Phase2({
                   "w-full flex items-center gap-5 p-5 rounded-2xl border-2 transition-all text-left",
                   scratchScore === opt.value
                     ? "border-primary bg-primary/5 shadow-md"
-                    : "border-border bg-white hover:bg-muted/20 hover:border-muted-foreground/20"
+                    : "border-border bg-card hover:bg-muted/20 hover:border-muted-foreground/20"
                 )}
               >
                 <span className="text-5xl leading-none shrink-0">{opt.emoji}</span>
@@ -1010,7 +1007,7 @@ function Phase2({
                   "w-full flex items-center gap-5 p-5 rounded-2xl border-2 transition-all text-left",
                   scratchScore === opt.value
                     ? "border-primary bg-primary/5 shadow-md"
-                    : "border-border bg-white hover:bg-muted/20 hover:border-muted-foreground/20"
+                    : "border-border bg-card hover:bg-muted/20 hover:border-muted-foreground/20"
                 )}
               >
                 <span className="text-5xl leading-none shrink-0">{opt.emoji}</span>
@@ -1059,7 +1056,7 @@ function Phase2({
                     "aspect-square rounded-2xl border-2 text-base font-bold transition-all",
                     scratchScore === n
                       ? "border-primary bg-primary text-primary-foreground shadow-md"
-                      : "border-border bg-white text-foreground hover:border-primary/40 hover:bg-primary/5"
+                      : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
                   )}
                 >
                   {n}
@@ -1178,7 +1175,7 @@ function Phase3({
 
         {/* Condition breakdown */}
         {conditionGroups.length > 0 && (
-          <div className="rounded-2xl border border-border bg-white overflow-hidden divide-y divide-border">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
             {conditionGroups.map(({ condition, zoneLabels, maxSeverity }) => {
               const { label: sevLabel, dot, text: textColor } = severityMeta(maxSeverity);
               return (
@@ -1196,7 +1193,7 @@ function Phase3({
         )}
 
         {/* Scratch summary */}
-        <div className="rounded-2xl border border-border bg-white px-4 py-3 flex items-center gap-3">
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 flex items-center gap-3">
           <span className="text-xl leading-none">🤚</span>
           <p className="text-sm text-foreground">{scratchSummaryText(scratchScore)}</p>
         </div>
